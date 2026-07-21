@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- App icon for the Bliss Tactile Symbol Designer.
+       The glyph is the Blissymbol for "all" (SVG files/all.svg): a square
+       crossed by both diagonals, drawn with the round caps and joins the
+       source uses. Stroke weight keeps the source's stroke-to-side ratio
+       (50.4167 / 585 ≈ 0.086), rounded up slightly so it still reads at 16px.
+       White on the app's accent plate rather than the source's black-on-white,
+       so it stays visible against both light and dark browser chrome.
+       Public domain (CC0), as with the rest of this project. -->
+  <rect width="32" height="32" rx="6" fill="#2b8a80"/>
+  <g fill="none" stroke="#ffffff" stroke-width="2"
+     stroke-linecap="round" stroke-linejoin="round">
+    <path d="M9 9H23V23H9Z"/>
+    <path d="M9 9 23 23"/>
+    <path d="M23 9 9 23"/>
+  </g>
+</svg>

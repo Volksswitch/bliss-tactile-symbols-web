@@ -1,0 +1,14 @@
+# OS / editor cruft
+Thumbs.db
+Desktop.ini
+.DS_Store
+*~
+
+# Node (only dev scripts use node; no deps are committed)
+node_modules/
+
+# Local scratch
+*.log
+
+# Claude Code machine-local settings
+.claude/settings.local.json
