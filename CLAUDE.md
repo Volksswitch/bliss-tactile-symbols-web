@@ -521,6 +521,11 @@ folder**, never from a repo (except the `.scad`/manifest it fetches for updates)
 
 ## Working conventions
 
+- **No point scoring and no attitude!** (Ken, 2026-07-21.) When Ken overrules a suggestion, that
+  is the end of it — do not revisit it, do not justify the earlier position, and do not comment on
+  whether a later request vindicates it. An instruction is not a proposal to be assessed: carry it
+  out. Concretely, this rule was written after "Now there's something to ship" was used to reassert
+  an objection Ken had already overruled.
 - **Decisions go in `CLAUDE.md`, never in Claude's memory** (Ken, 2026-07-21). This file is in the
   repo and therefore syncs across machines (OneDrive + git); Claude's memory directory is local to
   one machine, so anything recorded there is invisible from every other machine and silently
