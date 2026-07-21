@@ -10,16 +10,23 @@ OpenSCAD install and no command line. It merges two public-domain Volksswitch Op
 
 **Author:** Volksswitch (www.volksswitch.org) — released to the public domain (CC0)
 
-**Local path:** `C:\Users\ken\OneDrive\Desktop\BTS web app\`
-**Reference (web-app pattern this mirrors):** `C:\Users\ken\OneDrive\4 T-Z\Volksswitch\Keyguard\keyguard-designer-web\`
+## The only two folders in play
 
-The reference folder is a read-only source of truth; this project consumes it but doesn't own it.
+Development touches **exactly two** folders. Nothing else on the machine is part of this work —
+do not read from, write to, or reason about any other path, and do not go looking for one.
 
-The canonical `.scad`, the starter presets `.json`, and the `SVG files/` set live in the
-[`Volksswitch/bliss-tactile-symbols`](https://github.com/Volksswitch/bliss-tactile-symbols) repo
-(see "The symbol designer `.scad` is released from a SEPARATE repo" below). At runtime the app
-reads them from whichever folder the **user** connects — that folder is the user's own, its
-location is held only in IndexedDB, and it is never inferred from a path on disk.
+| Folder | What it is |
+|---|---|
+| `BTS web app/` | This repo — the app shell (`app.html`, `sw.js`, vendored deps, change control). |
+| `bliss-tactile-symbols/` | The separate repo — canonical `.scad`, `latest_scad_version.json`, starter presets `.json`, `SVG files/`. Released independently; see below. |
+
+Other folders may exist on disk with similar names. They are **not** ours: they are not sources of
+truth, not validation corpora, and not the app's connected folder. Leave them alone.
+
+**The connected folder is the user's own and is unknowable from disk.** At runtime the app reads
+the `.scad`/`.json`/SVGs from whichever folder the user picks via File System Access; the handle
+lives only in IndexedDB (`bts-db`/`handles`/`folder`). Never infer which folder that is from a
+path, and never edit a file on the assumption that it is the connected copy.
 
 ---
 
@@ -440,7 +447,7 @@ rounded top on very wide symbols.
 ⚠️ The legacy SVGs shipped in the `SVG files/` set were manually — and *inconsistently* — prepped in
 PowerPoint. **They are not official Bliss graphics and are not a validation corpus for Step-0 logic.**
 They happen to carry no `viewBox`, so the guard above passes them through untouched. Validate
-Step-0 work against BSI-native exports (`Desktop/step 0/`).
+Step-0 work against BSI-native exports, which Ken supplies — don't go hunting for a folder of them.
 
 ## Running the app locally
 
@@ -514,6 +521,12 @@ folder**, never from a repo (except the `.scad`/manifest it fetches for updates)
 
 ## Working conventions
 
+- **Decisions go in `CLAUDE.md`, never in Claude's memory** (Ken, 2026-07-21). This file is in the
+  repo and therefore syncs across machines (OneDrive + git); Claude's memory directory is local to
+  one machine, so anything recorded there is invisible from every other machine and silently
+  drifts out of date. When Ken makes a call — scope, conventions, geometry choices, process — write
+  it **here**, in the section it belongs to, and cite him with the date as the existing entries do.
+  Do not save it as a memory instead of, or in addition to, this file.
 - The app lives entirely in `app.html` + `bliss.scad`. No build step, no bundler. Do not add deps
   that require a build — it must stay servable by a plain `python -m http.server`.
 - `bliss.scad` is the single source of truth for both geometry and the Customizer form. Change a
