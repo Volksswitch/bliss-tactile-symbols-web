@@ -7,6 +7,8 @@ User-facing changes, newest first. Each bullet is written the way a user reads i
 
 ## Unreleased (next release)
 
+## Release 3
+
 - You can now install the designer as an app. In Chrome or Edge an install button
   appears at the right-hand end of the address bar; installing gives it its own
   window and a desktop/Start-menu icon, with no browser tabs or address bar. It is
