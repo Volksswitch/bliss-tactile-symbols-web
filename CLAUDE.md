@@ -497,11 +497,13 @@ BTS web app/
 └── vendor/three/      ← Vendored Three.js + OrbitControls + STLLoader
 ```
 
-Only the **app shell** is hosted in this repo. The symbol designer `.scad` — its canonical copy,
-`latest_scad_version.json`, `SCAD-CHANGELOG.md`, and `publish-scad-version.mjs` — lives in the
-**separate** `Volksswitch/bliss-tactile-symbols` repo (released independently; see the change-control
-note above). The user's presets `.json` and `SVG files/` are **not** in either repo — they come from
-the user's connected folder (and Ken's working folder `…/Desktop/Bliss Tactile Symbols/`).
+Only the **app shell** is hosted in this repo. The **separate** `Volksswitch/bliss-tactile-symbols`
+repo (released independently; see the change-control note above) is the canonical source for the
+symbol designer `.scad` (+ `latest_scad_version.json`, `SCAD-CHANGELOG.md`, `publish-scad-version.mjs`)
+**and** for the starter presets `.json` + `SVG files/` — the latter two are the *provisioning bundle*
+Ken's website serves as a ZIP to new users. Only the `.scad` auto-updates; the `.json`/SVGs become the
+user's own after provisioning. At runtime the app reads all of these from the user's **connected
+folder**, never from a repo (except the `.scad`/manifest it fetches for updates).
 
 ---
 
