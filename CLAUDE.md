@@ -246,9 +246,12 @@ Single HTML file, one inline ES module. **No build step, no bundler** — served
   when the folder's local `.scad` is behind the published `latest_scad_version.json`, the app offers
   an in-place update (`checkForScadUpdate` → `showScadUpdateModal` → `applyScadUpdate`; download +
   verify version + overwrite in place + reload). The canonical `.scad` + `latest_scad_version.json`
-  live in **this same repo** (a published copy of Ken's working `.scad`), published via
-  `scripts/publish-scad-version.mjs` with notes from `SCAD-CHANGELOG.md`. Trigger phrase to release
-  the app: **"bump bts web app"**. Test hooks: `window.__parseScadVersion`, `window.__showScadUpdateModal`.
+  live in a **SEPARATE repo** (`Volksswitch/bliss-tactile-symbols`, constant `SCAD_REPO` in
+  `app.html`) so the `.scad` releases **independently** of the app — a `.scad` publish never
+  redeploys the app and an app release never touches the `.scad`. That repo has its own
+  `RELEASING.md` + `publish-scad-version.mjs` (trigger "publish scad version"). Trigger phrase to
+  release the app: **"bump bts web app"**. Test hooks: `window.__parseScadVersion`,
+  `window.__showScadUpdateModal`.
 
 ---
 
@@ -484,23 +487,21 @@ BTS web app/
 ├── README.md          ← Short human-facing overview
 ├── app.html           ← The entire app (single HTML file with inline ES module)
 ├── index.html         ← Redirect stub so the GitHub Pages site root opens app.html
-├── Bliss Tactile Symbols.scad   ← Canonical PUBLISHED copy (download source for .scad updates);
-│                          a copy of Ken's working file in …/Desktop/Bliss Tactile Symbols/
 ├── server.bat         ← Starts the server (python http.server 8000) and opens the app
 ├── sw.js              ← Service worker (offline shell + app self-update); CACHE_NAME bumped at release
 ├── latest_app_version.json   ← App self-update manifest (app_release)
-├── latest_scad_version.json  ← .scad update manifest (version, scad_url, notes)
 ├── CHANGELOG.md       ← App user-facing changes (source of the bundled "What's new" notes)
-├── SCAD-CHANGELOG.md  ← .scad user-facing changes (source of the update-dialog notes)
-├── RELEASING.md       ← Release process for the app AND the .scad (trigger: "bump bts web app")
-├── scripts/           ← apply-release-notes.mjs, publish-app-version.mjs, publish-scad-version.mjs
+├── RELEASING.md       ← App release process (trigger: "bump bts web app")
+├── scripts/           ← apply-release-notes.mjs, publish-app-version.mjs
 ├── openscad-wasm/     ← Vendored openscad-wasm v0.0.4 (single-threaded, embedded wasm)
 └── vendor/three/      ← Vendored Three.js + OrbitControls + STLLoader
 ```
 
-The user's `Bliss Tactile Symbols.json` (presets) and `SVG files/` are **not** in this repo — they
-live in the user's connected folder (and Ken's working folder). Only the app shell + the canonical
-published `.scad` are hosted here.
+Only the **app shell** is hosted in this repo. The symbol designer `.scad` — its canonical copy,
+`latest_scad_version.json`, `SCAD-CHANGELOG.md`, and `publish-scad-version.mjs` — lives in the
+**separate** `Volksswitch/bliss-tactile-symbols` repo (released independently; see the change-control
+note above). The user's presets `.json` and `SVG files/` are **not** in either repo — they come from
+the user's connected folder (and Ken's working folder `…/Desktop/Bliss Tactile Symbols/`).
 
 ---
 

@@ -512,12 +512,16 @@ const APP_REPO = 'Volksswitch/bliss-tactile-symbols-web';
 const APP_MANIFEST_URL = `https://raw.githubusercontent.com/${APP_REPO}/main/latest_app_version.json`;
 
 // SCAD-file update (parallel to the app self-update, but for the symbol designer
-// .scad the user carries in their connected folder). The manifest names the
-// latest `scad_version` and where to download the matching .scad; the canonical
-// copy + manifest live in the SAME repo (not a separate one). When the user's
+// .scad the user carries in their connected folder). The canonical .scad + its
+// manifest live in a SEPARATE repo (Volksswitch/bliss-tactile-symbols) so the
+// .scad releases INDEPENDENTLY of the web app — a .scad publish never redeploys
+// the app, and an app release never touches the .scad. The manifest names the
+// latest `scad_version` and where to download the matching .scad; when the user's
 // local .scad is behind, the app offers an in-place update (see checkForScadUpdate).
 // raw.githubusercontent serves both with CORS; the filename is URL-encoded.
-const SCAD_MANIFEST_URL = `https://raw.githubusercontent.com/${APP_REPO}/main/latest_scad_version.json`;
+// ⚠️ Keep SCAD_REPO in lockstep with the scad repo (and its publish script).
+const SCAD_REPO = 'Volksswitch/bliss-tactile-symbols';
+const SCAD_MANIFEST_URL = `https://raw.githubusercontent.com/${SCAD_REPO}/main/latest_scad_version.json`;
 const SCAD_SNOOZE_MS = 7 * 24 * 60 * 60 * 1000;   // "Remind me in a week"
 
 // User-facing "What's new" notes, keyed by release, BUNDLED into the app (not
