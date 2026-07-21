@@ -11,10 +11,15 @@ OpenSCAD install and no command line. It merges two public-domain Volksswitch Op
 **Author:** Volksswitch (www.volksswitch.org) — released to the public domain (CC0)
 
 **Local path:** `C:\Users\ken\OneDrive\Desktop\BTS web app\`
-**Reference (SCAD sources + sample SVGs):** `C:\Users\ken\OneDrive\Desktop\Bliss Tactile Symbols\`
 **Reference (web-app pattern this mirrors):** `C:\Users\ken\OneDrive\4 T-Z\Volksswitch\Keyguard\keyguard-designer-web\`
 
-The reference folders are read-only sources of truth; this project consumes them but doesn't own them.
+The reference folder is a read-only source of truth; this project consumes it but doesn't own it.
+
+The canonical `.scad`, the starter presets `.json`, and the `SVG files/` set live in the
+[`Volksswitch/bliss-tactile-symbols`](https://github.com/Volksswitch/bliss-tactile-symbols) repo
+(see "The symbol designer `.scad` is released from a SEPARATE repo" below). At runtime the app
+reads them from whichever folder the **user** connects — that folder is the user's own, its
+location is held only in IndexedDB, and it is never inferred from a path on disk.
 
 ---
 
@@ -432,7 +437,7 @@ brain_injury 56 mm → 63 mm (1.75×). Each the smallest step that keeps ≥3 mm
 `34.8` default. Pre-existing (the dropdown went to 4 with no table past 3); only affects the "⁀ noun"
 rounded top on very wide symbols.
 
-⚠️ The SVGs in `Bliss Tactile Symbols/SVG files/` were manually — and *inconsistently* — prepped in
+⚠️ The legacy SVGs shipped in the `SVG files/` set were manually — and *inconsistently* — prepped in
 PowerPoint. **They are not official Bliss graphics and are not a validation corpus for Step-0 logic.**
 They happen to carry no `viewBox`, so the guard above passes them through untouched. Validate
 Step-0 work against BSI-native exports (`Desktop/step 0/`).
