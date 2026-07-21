@@ -218,6 +218,18 @@
   #whatsnewMsg ul { margin: 4px 0 0; padding-left: 20px; color: var(--muted); }
   #whatsnewMsg li { margin-bottom: 4px; }
   .whatsnew-foot { padding: 10px 18px; border-top: 1px solid var(--line); text-align: right; background: var(--panel); }
+
+  /* SCAD-file update modal — reuses the whatsnew-card shell; its footer holds
+     three choices and the body can show a code-styled filename. */
+  #scadUpdateMsg { padding: 16px 18px; font-size: 13px; line-height: 1.5; color: var(--text);
+    max-height: 60vh; overflow-y: auto; }
+  #scadUpdateMsg .su-intro { margin-top: 10px; color: var(--muted); }
+  #scadUpdateMsg .su-foot-note { margin-top: 12px; color: var(--text); }
+  #scadUpdateMsg ul { margin: 4px 0 0; padding-left: 20px; color: var(--muted); }
+  #scadUpdateMsg li { margin-bottom: 4px; }
+  #scadUpdateMsg code { background: var(--panel-2); border: 1px solid var(--line);
+    border-radius: 3px; padding: 0 4px; font-size: 12px; }
+  .whatsnew-foot.su-foot { display: flex; gap: 8px; justify-content: flex-end; }
   .gate-err { color: var(--danger); font-weight: 500; }
   .gate-note { font-size: 11px; color: var(--muted); margin: 10px 0 0; }
 
@@ -462,6 +474,19 @@
   </div>
 </div>
 
+<!-- Offered when the folder's symbol designer .scad is behind the published version. -->
+<div id="scadUpdateOverlay" class="gate-overlay" hidden>
+  <div class="whatsnew-card">
+    <h2>Symbol designer update available</h2>
+    <div id="scadUpdateMsg"></div>
+    <div class="whatsnew-foot su-foot">
+      <button id="scadUpdateSkip" type="button">Skip</button>
+      <button id="scadUpdateSnooze" type="button">Remind me in a week</button>
+      <button id="scadUpdateNow" type="button" class="primary">Update now</button>
+    </div>
+  </div>
+</div>
+
 <script type="module">
 import * as THREE from 'three';
 import { TrackballControls } from 'three/addons/controls/TrackballControls.js';
@@ -477,7 +502,7 @@ import { addFonts } from './openscad-wasm/openscad.fonts.js';
 // a dev build reads one ahead of what's deployed. sw.js's CACHE_NAME and
 // latest_app_version.json are the SEPARATE deployment markers — NOT pre-bumped
 // on dev, only at release, to match this number.
-const APP_RELEASE = 1;
+const APP_RELEASE = 2;
 
 // The GitHub repo that hosts this app (GitHub Pages serves its `main`). Both the
 // self-update manifest URL and the "you're up to date" logic derive from it, so
@@ -485,6 +510,15 @@ const APP_RELEASE = 1;
 // ⚠️ Confirm this matches the real repo before the first public deploy.
 const APP_REPO = 'Volksswitch/bliss-tactile-symbols-web';
 const APP_MANIFEST_URL = `https://raw.githubusercontent.com/${APP_REPO}/main/latest_app_version.json`;
+
+// SCAD-file update (parallel to the app self-update, but for the symbol designer
+// .scad the user carries in their connected folder). The manifest names the
+// latest `scad_version` and where to download the matching .scad; the canonical
+// copy + manifest live in the SAME repo (not a separate one). When the user's
+// local .scad is behind, the app offers an in-place update (see checkForScadUpdate).
+// raw.githubusercontent serves both with CORS; the filename is URL-encoded.
+const SCAD_MANIFEST_URL = `https://raw.githubusercontent.com/${APP_REPO}/main/latest_scad_version.json`;
+const SCAD_SNOOZE_MS = 7 * 24 * 60 * 60 * 1000;   // "Remind me in a week"
 
 // User-facing "What's new" notes, keyed by release, BUNDLED into the app (not
 // fetched) so the post-update notice works even on locked-down networks — the
@@ -496,6 +530,9 @@ const APP_MANIFEST_URL = `https://raw.githubusercontent.com/${APP_REPO}/main/lat
 const RELEASE_NOTES = {
   "1": [
     "First release of the Bliss Tactile Symbol Designer web app. Turn a prepped Blissymbol SVG into a finished, 3D-printable tactile symbol STL entirely in Chrome or Edge — no OpenSCAD install and no command line."
+  ],
+  "2": [
+    "The app keeps your symbol designer file up to date. When you open your folder, if a newer version of the symbol designer program has been published, the app offers to download it and replace your local copy — keeping your saved concepts. You can update now, be reminded in a week, or skip. The notice lists what changed so you can decide."
   ]
 };
 // @@RELEASE_NOTES_END@@
@@ -646,6 +683,156 @@ function maybeShowWhatsNew(){
   const groups = collectWhatsNew(seen);
   setLastSeenRelease(APP_RELEASE);                                // record before showing (a reload can't re-trigger)
   if (groups.length) showWhatsNewModal(groups);
+}
+
+// ===== SCAD-file update (the symbol designer .scad in the user's folder) =====
+// The user carries a local copy of "Bliss Tactile Symbols.scad" in their
+// connected folder. When a newer version is published (its scad_version bumped +
+// latest_scad_version.json updated), the app offers to download it and overwrite
+// the local copy IN PLACE — the filename is stable (no version in the name), so
+// the .json presets beside it carry forward untouched. Any fetch failure
+// (offline / github blocked) is a silent no-op — the user is never blocked from
+// working with the file they already have.
+function parseScadVersion(scadText){
+  const m = (scadText || '').match(/scad_version\s*=\s*(\d+)/);
+  return m ? parseInt(m[1], 10) : null;
+}
+
+// "Remind me in a week" snooze, in localStorage: { until, forVersion }. A version
+// newer than the one the user postponed re-prompts immediately (forVersion gate).
+const LS_SCAD_SNOOZE = 'bts_scad_snooze';
+function getScadSnooze(){ try { return JSON.parse(localStorage.getItem(LS_SCAD_SNOOZE) || 'null'); } catch { return null; } }
+function setScadSnooze(v){ try { localStorage.setItem(LS_SCAD_SNOOZE, JSON.stringify(v)); } catch {} }
+function clearScadSnooze(){ try { localStorage.removeItem(LS_SCAD_SNOOZE); } catch {} }
+
+// Called after a folder connects (a safe moment: freshly loaded, no unsaved edits
+// specific to the .scad). Compares the loaded scad_version against the manifest.
+async function checkForScadUpdate(){
+  if (!folder || !folder.dir) return;
+  const loaded = parseScadVersion(SCAD_TEXT);
+  if (loaded == null) return;                        // can't read a version — don't nag
+  let manifest;
+  try {
+    const r = await fetch(SCAD_MANIFEST_URL + '?t=' + Date.now(), { cache: 'no-store' });
+    if (!r.ok) return;
+    manifest = await r.json();
+  } catch { return; }                                // offline / github blocked — silent no-op
+  const latest = Number(manifest && manifest.version);
+  if (!Number.isFinite(latest) || latest <= loaded) return;   // already current
+
+  // Honour an active snooze, but a version newer than the postponed one re-prompts.
+  const sn = getScadSnooze();
+  if (sn && sn.until > Date.now() && sn.forVersion >= latest) return;
+
+  const choice = await showScadUpdateModal({ loaded, latest, notes: manifest.notes, scadName: folder.scadName });
+  if (choice === 'update'){
+    await applyScadUpdate(manifest);
+  } else if (choice === 'snooze'){
+    setScadSnooze({ until: Date.now() + SCAD_SNOOZE_MS, forVersion: latest });
+    logLine(`Symbol designer update to v${latest} postponed for one week.`);
+  } else {
+    logLine(`Symbol designer update to v${latest} skipped — you'll be reminded next time you open the folder.`);
+  }
+}
+
+// Downloads the new .scad, verifies it carries the promised version, then
+// overwrites the local file in place and reloads the folder. Download-and-verify
+// happen BEFORE any write, so any failure leaves the user's files untouched.
+async function applyScadUpdate(manifest){
+  const dir = folder.dir, scadName = folder.scadName;
+  setStatus('Updating symbol designer…', 'busy');
+  logLine(`Updating "${scadName}" to v${manifest.version}…`);
+
+  let bytes;
+  try {
+    const r = await fetch(manifest.scad_url, { cache: 'no-store' });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    bytes = new Uint8Array(await r.arrayBuffer());
+  } catch (e){
+    logLine(`  ERROR downloading update: ${e.message} — no changes made.`);
+    setStatus('Update failed (download error) — your files are unchanged.', 'err');
+    return;
+  }
+  // Guard a stale/mispointed manifest: the bytes must carry the exact version
+  // promised, or abort without changing anything.
+  const dl = parseScadVersion(new TextDecoder().decode(bytes));
+  if (dl !== Number(manifest.version)){
+    logLine(`  ERROR: downloaded file is v${dl}, manifest promised v${manifest.version} — aborting, no changes made.`);
+    setStatus('Update failed (version mismatch) — your files are unchanged.', 'err');
+    return;
+  }
+  try {
+    const h = await dir.getFileHandle(scadName, { create: true });
+    const w = await h.createWritable();
+    await w.write(bytes);
+    await w.close();
+    if ((await h.getFile()).size === 0) throw new Error('written .scad is empty');
+    logLine(`  Update complete — now running v${manifest.version}. Reloading…`);
+  } catch (e){
+    logLine(`  ERROR writing update: ${e.message} — reopen the folder to re-check.`);
+    setStatus('Update failed — see console', 'err');
+    return;
+  }
+  clearScadSnooze();
+  await loadFromFolder(dir);   // rebuilds Customizer, banner, presets from the new file
+}
+
+// Three-choice modal (Update now / Remind me in a week / Skip). Resolves
+// 'update' | 'snooze' | 'skip'. Notes is an array of user-visible change strings.
+function showScadUpdateModal({ loaded, latest, notes, scadName }){
+  return new Promise(resolve => {
+    const ov  = document.getElementById('scadUpdateOverlay');
+    const msg = document.getElementById('scadUpdateMsg');
+    msg.textContent = '';
+
+    const p1 = document.createElement('div');
+    const a = document.createElement('b'); a.textContent = 'v' + loaded;
+    const b = document.createElement('b'); b.textContent = 'v' + latest;
+    p1.append('Your symbol designer file is ', a, '. Version ', b, ' is now available.');
+    msg.appendChild(p1);
+
+    const noteItems = Array.isArray(notes) ? notes.filter(Boolean) : (notes ? [notes] : []);
+    if (noteItems.length){
+      const intro = document.createElement('div');
+      intro.className = 'su-intro';
+      intro.textContent = noteItems.length > 1 ? 'What’s new in this version:' : 'What’s new:';
+      msg.appendChild(intro);
+      const ul = document.createElement('ul');
+      for (const it of noteItems){
+        const li = document.createElement('li'); li.textContent = String(it); ul.appendChild(li);
+      }
+      msg.appendChild(ul);
+    }
+
+    const p2 = document.createElement('div');
+    p2.className = 'su-foot-note';
+    const nc = document.createElement('code'); nc.textContent = scadName;
+    p2.append('“Update now” downloads the new file from GitHub, replaces ', nc,
+              ' in your folder, keeps your saved presets, and reloads.');
+    msg.appendChild(p2);
+
+    const now = document.getElementById('scadUpdateNow');
+    const snooze = document.getElementById('scadUpdateSnooze');
+    const skip = document.getElementById('scadUpdateSkip');
+    function cleanup(val){
+      ov.hidden = true;
+      now.removeEventListener('click', onNow);
+      snooze.removeEventListener('click', onSnooze);
+      skip.removeEventListener('click', onSkip);
+      document.removeEventListener('keydown', onKey);
+      resolve(val);
+    }
+    const onNow = () => cleanup('update');
+    const onSnooze = () => cleanup('snooze');
+    const onSkip = () => cleanup('skip');
+    const onKey = e => { if (e.key === 'Escape') cleanup('skip'); };
+    now.addEventListener('click', onNow);
+    snooze.addEventListener('click', onSnooze);
+    skip.addEventListener('click', onSkip);
+    document.addEventListener('keydown', onKey);
+    ov.hidden = false;
+    now.focus();
+  });
 }
 
 // ------------------------------------------------------------------ 3D scene
@@ -1494,6 +1681,8 @@ function applyPrep(){
 // Test hooks: run Step-0 prep / scale detection on an SVG string without
 // touching the app state.
 window.__stripIndicators = stripIndicators;
+window.__parseScadVersion = parseScadVersion;
+window.__showScadUpdateModal = showScadUpdateModal;   // test hook: resolves the chosen action
 window.__fattenStrokes = fattenStrokes;
 window.__strokeToOutline = strokeToOutline;
 window.__parseStrokeWidth = parseStrokeWidth;
@@ -2317,13 +2506,18 @@ async function loadFromFolder(dir){
   updateDirty();
   logLine(`Connected folder: ${dir.name}`);
   logVersionBanner();
+  const sv = parseScadVersion(SCAD_TEXT);
+  logLine(`Symbol designer file "${scadName}" — version ${sv != null ? sv : 'unknown'}`);
   if (!svgDir) logLine('Note: no "SVG files" subfolder found — the graphic picker will be empty.');
   document.getElementById('launchGate').hidden = true;
   setStatus('Ready — rendering…', 'busy');
   runRender();
-  // Folder just connected — a safe moment (no unsaved edits) to pick up a newer
-  // published app build.
-  checkForAppUpdate(swRegistration).catch(() => {});
+  // Folder just connected — a safe moment (no unsaved edits) to pick up updates.
+  // Check the app build first; only offer a .scad update if the app itself isn't
+  // about to force-reload (which would wipe the modal anyway).
+  checkForAppUpdate(swRegistration).catch(() => {}).finally(() => {
+    if (!appReloadArmed) checkForScadUpdate().catch(() => {});
+  });
 }
 
 // User-driven: reuse the remembered folder if we can, else show the picker.

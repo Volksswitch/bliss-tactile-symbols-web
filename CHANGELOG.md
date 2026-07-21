@@ -7,7 +7,10 @@ User-facing changes, newest first. Each bullet is written the way a user reads i
 
 ## Unreleased (next release)
 
-- _Nothing yet._
+- The app keeps your symbol designer file up to date. When you open your folder, if a
+  newer version of the symbol designer program has been published, the app offers to
+  download it and replace your local copy — keeping your saved concepts. You can update
+  now, be reminded in a week, or skip. The notice lists what changed so you can decide.
 
 ## Release 1
 
