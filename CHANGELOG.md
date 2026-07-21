@@ -7,6 +7,11 @@ User-facing changes, newest first. Each bullet is written the way a user reads i
 
 ## Unreleased (next release)
 
+- You can now install the designer as an app. In Chrome or Edge an install button
+  appears at the right-hand end of the address bar; installing gives it its own
+  window and a desktop/Start-menu icon, with no browser tabs or address bar. It is
+  the same app either way — your folder, concepts and files are unchanged.
+
 ## Release 2
 
 - The app keeps your symbol designer file up to date. When you open your folder, if a

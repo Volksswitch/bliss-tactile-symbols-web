@@ -5,6 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Bliss Tactile Symbol Designer</title>
 <link rel="icon" href="./favicon.svg" type="image/svg+xml">
+<!-- Installability (PWA): the manifest + a 192/512 PNG icon pair are what make
+     Chrome/Edge offer "Install" in the address bar; the service worker alone is
+     not enough. theme-color tints the installed window's title bar. -->
+<link rel="manifest" href="./manifest.webmanifest">
+<meta name="theme-color" content="#2b8a80">
+<link rel="apple-touch-icon" href="./icons/icon-192.png">
 
 <script type="importmap">
 {
@@ -537,6 +543,9 @@ const RELEASE_NOTES = {
   ],
   "2": [
     "The app keeps your symbol designer file up to date. When you open your folder, if a newer version of the symbol designer program has been published, the app offers to download it and replace your local copy — keeping your saved concepts. You can update now, be reminded in a week, or skip. The notice lists what changed so you can decide."
+  ],
+  "3": [
+    "You can now install the designer as an app. In Chrome or Edge an install button appears at the right-hand end of the address bar; installing gives it its own window and a desktop/Start-menu icon, with no browser tabs or address bar. It is the same app either way — your folder, concepts and files are unchanged."
   ]
 };
 // @@RELEASE_NOTES_END@@

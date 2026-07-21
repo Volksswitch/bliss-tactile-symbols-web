@@ -11,6 +11,10 @@ const CACHE_NAME = 'bts-v2';
 const SHELL = [
   './app.html',
   './favicon.svg',
+  './manifest.webmanifest',
+  './icons/icon-192.png',
+  './icons/icon-512.png',
+  './icons/icon-maskable-512.png',
   './openscad-wasm/openscad.js',
   './openscad-wasm/openscad.fonts.js',
   './vendor/three/build/three.module.min.js',
