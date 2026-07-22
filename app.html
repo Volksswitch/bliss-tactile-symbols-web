@@ -2260,7 +2260,7 @@ function applyPreset(name){
   // graphic_svg key means "no graphic" — not "keep whatever the last concept
   // loaded". Carrying it over silently attached artwork the user never chose for
   // this concept, and left the box showing a file the preset doesn't specify.
-  // (Only 5 of the 249 shipped presets name a graphic, so most switches clear it.)
+  // (Only a handful of the shipped concepts name a graphic, so most switches clear it.)
   const nm = String(preset.graphic_svg ?? '').trim();
   if (nm) { setGraphicSvgName(nm); loadSvgByName(nm); }   // loads + preps + renders
   else clearGraphic();                                    // blanks the box and re-renders

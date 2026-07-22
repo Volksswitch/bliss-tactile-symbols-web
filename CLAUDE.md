@@ -18,7 +18,7 @@ do not read from, write to, or reason about any other path, and do not go lookin
 | Folder | What it is |
 |---|---|
 | `BTS web app/` | This repo — the app shell (`app.html`, `sw.js`, vendored deps, change control). |
-| `bliss-tactile-symbols/` | The separate repo — canonical `.scad`, `latest_scad_version.json`, starter presets `.json`, `SVG files/`. Released independently; see below. |
+| `bliss-tactile-symbols/` | The separate repo — canonical `.scad` + `latest_scad_version.json` only. Released independently; see below. The starter `.json` / `SVG files/` are **not** there (deleted 2026-07-22): they ship as a ZIP from the Volksswitch website, so there is no local corpus of concepts or Blissymbols to consult. |
 
 Other folders may exist on disk with similar names. They are **not** ours: they are not sources of
 truth, not validation corpora, and not the app's connected folder. Leave them alone.
@@ -134,9 +134,11 @@ Single HTML file, one inline ES module. **No build step, no bundler** — served
   - **A switch writes EVERY user-facing param (Ken, 2026-07-22).** A param the concept doesn't name
     falls back to `SCAD_DEFAULTS`, *not* to the value the previous concept left behind. `applyPreset`
     used to `continue` past unnamed params, so a concept inherited stray settings and could render
-    differently depending on what had been loaded before it — 243 of the 249 shipped concepts omit at
-    least one key (`add_velcro_mounts` is absent from 211, `include_earth_and_sky_lines` from 236), so
-    the drift was the normal case, not an edge case. This matches the keyguard designer, whose
+    differently depending on what had been loaded before it — 243 of the 249 concepts omitted at least
+    one key (`add_velcro_mounts` absent from 211, `include_earth_and_sky_lines` from 236), so the drift
+    was the normal case, not an edge case. *(Counts measured 2026-07-22 against the starter `.json`
+    then sitting in the scad repo, since deleted — treat them as an order-of-magnitude record of why
+    this changed, not as a current fact.)* This matches the keyguard designer, whose
     `populateFormFromPreset` builds a full value map the same way. `graphic_svg` already worked like
     this — absent means "no graphic", not "keep".
   - **Why a combobox and not a `<select>` (Ken, 2026-07-20):** a `<select>` is rendered by the OS, and
@@ -500,10 +502,11 @@ server.bat         :: starts python -m http.server 8000 (own window) and opens t
 `file://` will not work — openscad-wasm and the File System Access API both require a secure origin
 (localhost qualifies). `server.bat` prefers `python` and falls back to `py`; the server runs in its
 own window (close it to stop). On launch the app shows the **launch gate** — click **Open folder…**
-and pick this project folder (it holds the `.scad`, `.json`, and `SVG files/`); grant read/write.
-The folder is remembered in IndexedDB, so later runs just need one click to reconnect. For local dev
-the served folder and the opened folder are the same directory; when hosted, the user opens their own
-downloaded copy. **Chrome/Edge only** (FSA API).
+and pick a **provisioned folder** — one holding a `.scad`, its `.json`, and `SVG files/`, i.e. what a
+user gets from the website ZIP (Ken's `…/Desktop/Bliss Tactile Symbols/` is one). Grant read/write.
+⚠️ Not this repo and not the scad repo: neither carries the `.json`/SVGs, so the concept list and
+graphic picker would come up empty. The folder is remembered in IndexedDB, so later runs just need one
+click to reconnect. When hosted, the user opens their own downloaded copy. **Chrome/Edge only** (FSA API).
 
 ---
 
@@ -553,10 +556,12 @@ BTS web app/
 Only the **app shell** is hosted in this repo. The **separate** `Volksswitch/bliss-tactile-symbols`
 repo (released independently; see the change-control note above) is the canonical source for the
 symbol designer `.scad` (+ `latest_scad_version.json`, `SCAD-CHANGELOG.md`, `publish-scad-version.mjs`)
-**and** for the starter presets `.json` + `SVG files/` — the latter two are the *provisioning bundle*
-Ken's website serves as a ZIP to new users. Only the `.scad` auto-updates; the `.json`/SVGs become the
-user's own after provisioning. At runtime the app reads all of these from the user's **connected
-folder**, never from a repo (except the `.scad`/manifest it fetches for updates).
+— and **only** those. The starter presets `.json` + `SVG files/` are the *provisioning bundle* Ken's
+website serves as a ZIP to new users; they are maintained there, not in any repo, and copies were
+deleted from the scad repo on 2026-07-22 so nothing could drift against the website's. Only the
+`.scad` auto-updates; the `.json`/SVGs become the user's own after provisioning. At runtime the app
+reads all of these from the user's **connected folder**, never from a repo (except the
+`.scad`/manifest it fetches for updates).
 
 ---
 
