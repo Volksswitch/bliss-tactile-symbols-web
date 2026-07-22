@@ -131,6 +131,14 @@ Single HTML file, one inline ES module. **No build step, no bundler** — served
   matching param are ignored — which lets old presets stay forward-compatible. Values are strings,
   coerced to each param's type; ranges snap to their step. Test hooks: `window.__applyPreset`,
   `window.__presetNames`, `window.__presetDbg`.
+  - **A switch writes EVERY user-facing param (Ken, 2026-07-22).** A param the concept doesn't name
+    falls back to `SCAD_DEFAULTS`, *not* to the value the previous concept left behind. `applyPreset`
+    used to `continue` past unnamed params, so a concept inherited stray settings and could render
+    differently depending on what had been loaded before it — 243 of the 249 shipped concepts omit at
+    least one key (`add_velcro_mounts` is absent from 211, `include_earth_and_sky_lines` from 236), so
+    the drift was the normal case, not an edge case. This matches the keyguard designer, whose
+    `populateFormFromPreset` builds a full value map the same way. `graphic_svg` already worked like
+    this — absent means "no graphic", not "keep".
   - **Why a combobox and not a `<select>` (Ken, 2026-07-20):** a `<select>` is rendered by the OS, and
     its text can never be selected or copied in any browser — Ken needs to copy a concept name. So the
     control is the keyguard designer's `#preset-combo` ported over (which its own comments describe as

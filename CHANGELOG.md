@@ -7,6 +7,14 @@ User-facing changes, newest first. Each bullet is written the way a user reads i
 
 ## Unreleased (next release)
 
+- Concepts no longer inherit settings from each other. Choosing a concept now sets
+  every setting, not just the ones that concept saved: anything it doesn't mention
+  goes back to the symbol designer file's default instead of keeping the value left
+  behind by the concept you had open before. A concept now looks the same however
+  you arrive at it. (Most of the supplied concepts don't save every setting, so this
+  is noticeable — switching between them no longer carries over things like the
+  velcro mounts, the earth and sky lines, or where the braille sits.)
+
 - A known starting point in the Concepts list. The list now opens with "design
   default values", the same entry the desktop Customizer offers. Choosing it sets
   every setting back to the symbol designer file's own defaults and clears the

@@ -650,6 +650,7 @@ const RELEASE_NOTES = {
     "Two-colour printing. A second, multi-coloured STL button in the button bar saves the symbol as two files — \"<name> - body.stl\" and \"<name> - graphic.stl\" — so the raised graphic can be printed in a different colour from the body. In your slicer, load the body file first, then right-click it and choose Add Part → Load… and pick the graphic file — it drops into place at the right height automatically, and you can then give each part its own filament (or use a filament change part-way through the print). Load the body first: opening both files together puts the graphic in the wrong place. The original single-file STL button is unchanged."
   ],
   "6": [
+    "Concepts no longer inherit settings from each other. Choosing a concept now sets every setting, not just the ones that concept saved: anything it doesn't mention goes back to the symbol designer file's default instead of keeping the value left behind by the concept you had open before. A concept now looks the same however you arrive at it. (Most of the supplied concepts don't save every setting, so this is noticeable — switching between them no longer carries over things like the velcro mounts, the earth and sky lines, or where the braille sits.)",
     "A known starting point in the Concepts list. The list now opens with \"design default values\", the same entry the desktop Customizer offers. Choosing it sets every setting back to the symbol designer file's own defaults and clears the graphic, so you can start a new concept from a known place instead of from whatever the last concept left behind. It is built in rather than saved in your concepts file, so it is always there and cannot be renamed, deleted, or saved over — pressing Save after choosing it asks for a name for a new concept."
   ]
 };
@@ -2225,6 +2226,13 @@ async function selectPreset(name){
 // legacy preset can't fight the app's own logic, and keys with no matching param
 // (removed/renamed since the preset was saved) are ignored. Values are strings
 // in the JSON, coerced to each param's type; ranges are snapped to their step.
+//
+// Every user-facing param is written on every switch: one the preset doesn't
+// name falls back to the .scad default, NOT to whatever the previous concept
+// left there. Skipping it (as this did) meant a concept silently inherited
+// stray values from the one before it, so the same concept could render
+// differently depending on what you had loaded first. This is what the keyguard
+// designer does — populateFormFromPreset builds a full map the same way.
 function applyPreset(name){
   // The built-in defaults entry is synthesised from the .scad, not looked up in
   // the JSON; from here on it behaves exactly like a stored preset.
@@ -2233,8 +2241,8 @@ function applyPreset(name){
   for (const p of PARAMS){
     if (APP_MANAGED.has(p.name)) continue;
     if (p.name === 'graphic_svg') continue;   // handled below — absent means "no graphic", not "keep"
-    if (!(p.name in preset)) continue;
-    const raw = preset[p.name];
+    const raw = (p.name in preset) ? preset[p.name] : (SCAD_DEFAULTS ? SCAD_DEFAULTS[p.name] : undefined);
+    if (raw === undefined) continue;          // param the .scad no longer declares
     if (p.type === 'number'){
       let v = parseFloat(raw);
       if (!Number.isFinite(v)) continue;
@@ -2252,7 +2260,7 @@ function applyPreset(name){
   // graphic_svg key means "no graphic" — not "keep whatever the last concept
   // loaded". Carrying it over silently attached artwork the user never chose for
   // this concept, and left the box showing a file the preset doesn't specify.
-  // (Only 1 of the 249 shipped presets names a graphic, so most switches clear it.)
+  // (Only 5 of the 249 shipped presets name a graphic, so most switches clear it.)
   const nm = String(preset.graphic_svg ?? '').trim();
   if (nm) { setGraphicSvgName(nm); loadSvgByName(nm); }   // loads + preps + renders
   else clearGraphic();                                    // blanks the box and re-renders
