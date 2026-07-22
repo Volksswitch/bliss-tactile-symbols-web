@@ -7,6 +7,8 @@ User-facing changes, newest first. Each bullet is written the way a user reads i
 
 ## Unreleased (next release)
 
+## Release 6
+
 - Build your own graphics from existing ones. A new Create button (next to
   Settings, below the viewport) opens a dialog where you can string existing Bliss
   graphics together left to right — for example "1" then "0" to make "10" — and
