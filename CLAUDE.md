@@ -146,6 +146,18 @@ Single HTML file, one inline ES module. **No build step, no bundler** — served
       lookup return null and the concept list came up silently empty on every folder open.
     - **List order is alphabetical** (case-insensitive), via `presetNames()` — the one place that
       enumerates concepts, so the dropdown and ↑/↓ stepping can't disagree.
+    - **`design default values` heads the list** — the web equivalent of the desktop Customizer's
+      built-in entry of that name, a known starting point that restores every parameter to the value
+      declared in the `.scad`. It is **synthesised, never stored in the `.json`**: `SCAD_DEFAULTS` is a
+      `snapshotParams()` taken in `loadFromFolder` right after `buildForm`, in the same
+      `{param: "value-as-string"}` shape as a stored preset, so `applyPreset` handles it on the normal
+      path (including clearing the graphic, since the default `graphic_svg` is empty). Re-taken on
+      every folder open, so an updated `.scad` supplies its own new defaults.
+      - `presetNames()` prepends it and filters a same-named concept out of the file's keys, so it
+        can't appear twice; it is omitted entirely until `SCAD_DEFAULTS` exists (no folder yet).
+      - It has no row in the file, so **Delete is disabled**, **Save routes to New**, and rename is
+        refused in both directions — `addPreset`/`renamePreset` also reject the name for a concept.
+        Nothing here reaches `buildPresetJson`, so the on-disk file is unaffected.
     - **The JSON on disk is sorted to match** (Ken, 2026-07-20). `buildPresetJson` sorts concept names
       with the *same* comparator (`localeCompare`, `sensitivity:'base'`), so a Save/New/Rename writes
       the new concept into its alphabetical place instead of appending it. The shipped file was

@@ -7,6 +7,14 @@ User-facing changes, newest first. Each bullet is written the way a user reads i
 
 ## Unreleased (next release)
 
+- A known starting point in the Concepts list. The list now opens with "design
+  default values", the same entry the desktop Customizer offers. Choosing it sets
+  every setting back to the symbol designer file's own defaults and clears the
+  graphic, so you can start a new concept from a known place instead of from
+  whatever the last concept left behind. It is built in rather than saved in your
+  concepts file, so it is always there and cannot be renamed, deleted, or saved
+  over — pressing Save after choosing it asks for a name for a new concept.
+
 ## Release 5
 
 - Two-colour printing. A second, multi-coloured STL button in the button bar saves

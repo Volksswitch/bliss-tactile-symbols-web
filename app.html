@@ -648,6 +648,9 @@ const RELEASE_NOTES = {
   ],
   "5": [
     "Two-colour printing. A second, multi-coloured STL button in the button bar saves the symbol as two files — \"<name> - body.stl\" and \"<name> - graphic.stl\" — so the raised graphic can be printed in a different colour from the body. In your slicer, load the body file first, then right-click it and choose Add Part → Load… and pick the graphic file — it drops into place at the right height automatically, and you can then give each part its own filament (or use a filament change part-way through the print). Load the body first: opening both files together puts the graphic in the wrong place. The original single-file STL button is unchanged."
+  ],
+  "6": [
+    "A known starting point in the Concepts list. The list now opens with \"design default values\", the same entry the desktop Customizer offers. Choosing it sets every setting back to the symbol designer file's own defaults and clears the graphic, so you can start a new concept from a known place instead of from whatever the last concept left behind. It is built in rather than saved in your concepts file, so it is always there and cannot be renamed, deleted, or saved over — pressing Save after choosing it asks for a name for a new concept."
   ]
 };
 // @@RELEASE_NOTES_END@@
@@ -1824,6 +1827,15 @@ let SCAD_TEXT = '';
 // (same basename as the .scad, the convention the desktop program uses). Shape:
 // { "<preset name>": { "<param>": "<value-as-string>", … }, … }. null until loaded.
 let PRESETS = null;
+// The desktop Customizer always offers a built-in "design default values" entry
+// that restores every parameter to the value declared in the .scad source. It is
+// synthesised, never stored in the .json, so we do the same: SCAD_DEFAULTS is a
+// snapshot taken right after the form is built from a freshly parsed .scad, in
+// the same {param: "value-as-string"} shape as a stored preset, which lets
+// applyPreset() treat it like any other. Re-taken on every folder open, so an
+// updated .scad brings its new defaults with it.
+const DEFAULTS_PRESET = 'design default values';
+let SCAD_DEFAULTS = null;
 
 function parseCustomizer(text){
   const lines = text.split(/\r?\n/);
@@ -2019,7 +2031,8 @@ function updateDirty(){
   const marker = document.getElementById('dirtyMarker');
   if (marker) marker.classList.toggle('visible', dirty);
   const save = document.getElementById('savePresetBtn'); if (save) save.disabled = !dirty || !folder;
-  const del  = document.getElementById('delPresetBtn');  if (del)  del.disabled  = !currentPreset || !folder;
+  // The built-in defaults entry isn't in the file, so there is nothing to delete.
+  const del  = document.getElementById('delPresetBtn');  if (del)  del.disabled  = !currentPreset || currentPreset === DEFAULTS_PRESET || !folder;
   const add  = document.getElementById('addPresetBtn');  if (add)  add.disabled  = !folder;
 }
 window.__presetDbg = () => ({ currentPreset, baseline: presetBaseline, cur: snapshotParams(), dirty: isDirty() });
@@ -2079,8 +2092,16 @@ function buildPresetBar(root){
 // handful of concepts were appended to the end over time), and it stays as-is on
 // disk — this sort is presentation only. Everything that walks the list (the
 // dropdown, ↑/↓ stepping) goes through here, so they can't disagree.
+// The built-in defaults entry heads the list — the desktop Customizer puts it
+// first too, and it reads as the starting point rather than as a concept filed
+// under "d". Everything after it is the JSON's concepts, alphabetical. A concept
+// in the file sharing the built-in's name is dropped rather than listed twice;
+// the built-in wins, since it is the one that always works.
 function presetNames(){
-  return Object.keys(PRESETS || {}).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+  const names = Object.keys(PRESETS || {})
+    .filter(n => n !== DEFAULTS_PRESET)
+    .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+  return SCAD_DEFAULTS ? [DEFAULTS_PRESET, ...names] : names;
 }
 function closePresetList(){ const l = document.getElementById('presetList'); if (l) l.classList.remove('open'); }
 function openPresetList(){
@@ -2154,6 +2175,13 @@ async function renamePreset(newName){
   newName = String(newName || '').trim();
   const oldName = currentPreset;
   if (!oldName || !newName || newName === oldName || !folder){ if (input) input.value = oldName; return; }
+  // The built-in defaults entry has no row in the file to relabel, and no concept
+  // may take its name.
+  if (oldName === DEFAULTS_PRESET || newName === DEFAULTS_PRESET){
+    if (input) input.value = oldName;
+    setStatus(`“${DEFAULTS_PRESET}” is the built-in starting point — it can't be renamed or reused.`, 'err');
+    return;
+  }
   // Permission first, then the modal — same order as deletePreset, so the
   // permission prompt still has the page's user activation if it needs it.
   if (!(await ensureRW(folder.jsonHandle || folder.dir))){ setStatus('Write permission denied.', 'err'); if (input) input.value = oldName; return; }
@@ -2198,7 +2226,9 @@ async function selectPreset(name){
 // (removed/renamed since the preset was saved) are ignored. Values are strings
 // in the JSON, coerced to each param's type; ranges are snapped to their step.
 function applyPreset(name){
-  const preset = PRESETS && PRESETS[name];
+  // The built-in defaults entry is synthesised from the .scad, not looked up in
+  // the JSON; from here on it behaves exactly like a stored preset.
+  const preset = (name === DEFAULTS_PRESET) ? SCAD_DEFAULTS : (PRESETS && PRESETS[name]);
   if (!preset) return;
   for (const p of PARAMS){
     if (APP_MANAGED.has(p.name)) continue;
@@ -2258,7 +2288,10 @@ async function writePresetsFile(){
 }
 async function savePreset(){
   if (!folder) return;
-  if (!currentPreset) return addPreset();   // nothing selected → Save As (prompt for a name)
+  // Nothing selected → Save As (prompt for a name). Editing the built-in defaults
+  // takes the same route: it is not a row in the file, so there is nothing to
+  // save over, and the edit becomes a new concept.
+  if (!currentPreset || currentPreset === DEFAULTS_PRESET) return addPreset();
   try {
     PRESETS[currentPreset] = { ...(PRESETS[currentPreset] || {}), ...snapshotParams() };
     await writePresetsFile();
@@ -2272,8 +2305,11 @@ async function addPreset(){
   // Grab write permission BEFORE prompt(): a native prompt consumes the page's
   // user-activation, which requestPermission() would then need and not have.
   if (!(await ensureRW(folder.jsonHandle || folder.dir))){ setStatus('Write permission denied.', 'err'); return; }
-  const name = (prompt('Name for the new preset:', currentPreset || '') || '').trim();
+  // Don't seed the prompt with the built-in's name — it can't be used as a concept.
+  const seed = currentPreset === DEFAULTS_PRESET ? '' : currentPreset;
+  const name = (prompt('Name for the new preset:', seed || '') || '').trim();
   if (!name) return;
+  if (name === DEFAULTS_PRESET){ setStatus(`“${DEFAULTS_PRESET}” is the built-in starting point — choose another name.`, 'err'); return; }
   if (PRESETS[name] && !(await confirmDiscard(`A preset named “${name}” exists. Overwrite it?`))) return;
   try {
     PRESETS[name] = { ...(PRESETS[currentPreset] || {}), ...snapshotParams() };
@@ -2834,6 +2870,7 @@ async function loadFromFolder(dir){
   SVG_LIST = null;                 // force the picker to re-enumerate the new folder
   currentPreset = ''; presetBaseline = null;
   buildForm(parseCustomizer(SCAD_TEXT));
+  SCAD_DEFAULTS = snapshotParams();    // the built-in "design default values" entry
   presetBaseline = snapshotParams();   // baseline = the .scad defaults, so later edits read as dirty
   updateDirty();
   logLine(`Connected folder: ${dir.name}`);
