@@ -120,10 +120,79 @@
     border-radius: 4px; padding: 3px 10px;
   }
   .svgpick-btn:hover { border-color: var(--accent); }
+  .svgpick-btn:disabled { opacity: .4; cursor: default; border-color: var(--line); }
+
+  /* Component chips (used in the Create-Graphic dialog). */
+  .seq-chips { display: flex; flex-direction: column; gap: 6px; }
+  .seq-empty { font-size: 12px; color: var(--muted); font-style: italic; }
+  .seq-chip {
+    display: flex; align-items: center; gap: 3px;
+    background: var(--panel-2); border: 1px solid var(--line); border-radius: 5px;
+    padding: 3px 4px 3px 6px;
+  }
+  .seq-chip-name { font-size: 13px; color: var(--text); flex: 1 1 auto; min-width: 0;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .seq-chip-btn {
+    font-family: inherit; font-size: 15px; line-height: 1; cursor: pointer;
+    color: var(--muted); background: none; border: none; border-radius: 3px; padding: 2px 5px;
+  }
+  .seq-chip-btn:hover:not(:disabled) { color: var(--accent); background: var(--panel); }
+  .seq-chip-btn:disabled { opacity: .3; cursor: default; }
+  .chip-plural { display: inline-flex; align-items: center; gap: 3px; font-size: 12px;
+    color: var(--muted); cursor: pointer; padding: 0 4px; user-select: none; }
+  .chip-plural input { margin: 0; }
+
+  /* Create-Graphic dialog */
+  #createOverlay {
+    position: fixed; inset: 0; z-index: 60; background: rgba(20,28,38,.34);
+    display: flex; align-items: center; justify-content: center;
+  }
+  #createOverlay[hidden] { display: none; }
+  #createModal {
+    width: 720px; max-width: 94vw; max-height: 88vh; display: flex; flex-direction: column;
+    background: var(--bg); border: 1px solid var(--line); border-radius: 10px;
+    box-shadow: 0 12px 40px rgba(20,28,38,.28); overflow: hidden;
+  }
+  .create-head {
+    display: flex; align-items: center; padding: 10px 14px; font-weight: 600; font-size: 14px;
+    border-bottom: 1px solid var(--line); background: var(--panel);
+  }
+  .create-head button {
+    margin-left: auto; border: none; background: none; cursor: pointer;
+    font-size: 15px; color: var(--muted); padding: 2px 6px; border-radius: 4px;
+  }
+  .create-head button:hover { color: var(--accent); background: var(--panel-2); }
+  .create-body { flex: 1 1 auto; display: flex; min-height: 0; }
+  .create-left  { flex: 0 0 300px; display: flex; flex-direction: column; gap: 8px;
+    padding: 12px 14px; border-right: 1px solid var(--line); overflow-y: auto; }
+  .create-right { flex: 1 1 auto; display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; min-width: 0; }
+  .create-caption { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+  .create-left .svgpick-btn { align-self: flex-start; }
+  .create-note { font-size: 11px; color: var(--muted); margin: 2px 0 0; }
+  .create-note b { color: var(--text); }
+  .create-preview {
+    flex: 1 1 auto; display: flex; align-items: center; justify-content: center;
+    min-height: 260px; background: #fff; border: 1px solid var(--line); border-radius: 6px; padding: 10px;
+  }
+  .create-preview svg { max-width: 100%; max-height: 42vh; }
+  .create-empty { font-size: 12px; color: var(--muted); font-style: italic; }
+  .create-foot {
+    display: flex; align-items: center; gap: 10px; padding: 10px 14px;
+    border-top: 1px solid var(--line); background: var(--panel);
+  }
+  .create-namerow { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text); }
+  .create-namerow input {
+    font-family: inherit; font-size: 13px; color: var(--text); width: 200px;
+    background: var(--bg); border: 1px solid var(--line); border-radius: 5px; padding: 4px 7px;
+  }
+  .create-namerow input:focus { outline: none; border-color: var(--accent); }
+  .create-spacer { flex: 1 1 auto; }
+  .create-save { border-color: var(--accent); color: var(--accent); font-weight: 600; }
+  .create-save:disabled { opacity: .45; border-color: var(--line); color: var(--muted); }
 
   /* SVG folder picker (modal) */
   .picker-overlay {
-    position: fixed; inset: 0; z-index: 50; background: rgba(20,28,38,.34);
+    position: fixed; inset: 0; z-index: 90; background: rgba(20,28,38,.34);
     display: flex; align-items: flex-start; justify-content: center; padding-top: 8vh;
   }
   .picker-overlay[hidden] { display: none; }
@@ -486,6 +555,14 @@
 
       <!-- Auto-margin separator: everything after it sits at the right-hand end. -->
       <div class="vp-sep" style="margin-left:auto"></div>
+      <!-- Create a new compound graphic (composition is separate from assigning a
+           graphic to a symbol). Opens the Create-Graphic dialog. -->
+      <button class="vp-btn" id="createGraphicBtn" title="Create a graphic" disabled>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true">
+          <rect x="3" y="4" width="11" height="16" rx="1.5"/>
+          <path d="M18 9v10M13 14h10"/>
+        </svg>
+      </button>
       <button class="vp-btn" id="settings-btn" title="Settings">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true">
           <circle cx="12" cy="12" r="3"/>
@@ -514,6 +591,38 @@
     <div class="picker-foot">
       <span class="picker-hint">↑↓ move · Enter choose · Esc cancel</span>
       <button id="pickerCancel" type="button">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Create-Graphic dialog: build a NEW compound graphic (append existing symbols
+     left-to-right, optional per-element plural ×), preview it in 2D, and save it
+     as a new .svg in the SVG files folder. Separate from assigning a graphic. -->
+<div id="createOverlay" hidden>
+  <div id="createModal" role="dialog" aria-modal="true" aria-label="Create a graphic">
+    <div class="create-head">
+      <span>Create a graphic</span>
+      <button id="createClose" type="button" title="Close" aria-label="Close">✕</button>
+    </div>
+    <div class="create-body">
+      <div class="create-left">
+        <div class="create-caption">Components — left to right</div>
+        <div id="createChips" class="seq-chips"></div>
+        <button id="createAddBtn" type="button" class="svgpick-btn">+ Add symbol</button>
+        <p class="create-note">Tick <b>×</b> on a component to place a plural indicator over it.</p>
+      </div>
+      <div class="create-right">
+        <div class="create-caption">Preview</div>
+        <div id="createPreview" class="create-preview"></div>
+      </div>
+    </div>
+    <div class="create-foot">
+      <label class="create-namerow">Name
+        <input id="createName" type="text" autocomplete="off" placeholder="e.g. children">
+      </label>
+      <span class="create-spacer"></span>
+      <button id="createCancel" type="button" class="svgpick-btn">Cancel</button>
+      <button id="createSave" type="button" class="svgpick-btn create-save">Save</button>
     </div>
   </div>
 </div>
@@ -1197,6 +1306,11 @@ const EARTH_SKY_HALF_SPAN = 12;
 // Minimum clear border between the graphic's ink and the body edge, each side.
 const BLISS_MIN_BORDER_MM = 3;
 const DRAWABLE = 'path,line,circle,ellipse,rect,polygon,polyline';
+// Gap inserted between two symbols when appending them into a sequence ("1"+"0"
+// -> "10"), in matrix units. Each part is advanced by its own viewBox width —
+// which already carries the designer's built-in side margins — PLUS this. Small
+// on purpose; bump it if sequenced symbols read as too tight. (Ken, 2026-07-22.)
+const BLISS_SEQUENCE_GAP_UNITS = 8;
 
 // Offscreen host so we can use the browser's own geometry engine (getBBox +
 // getScreenCTM) instead of re-implementing path maths and transform flattening.
@@ -1632,6 +1746,8 @@ async function loadSvgFile(file){
 }
 // Load a curated graphic by its base name (no extension) from the connected
 // folder's "SVG files" subfolder (read through its FileSystemDirectoryHandle).
+// A compound graphic is just another file here — it was flattened to one .svg by
+// the Create-Graphic dialog, so assigning it is an ordinary single-file load.
 async function loadSvgByName(name){
   if (!name) return false;
   if (!folder || !folder.svgDir) { setStatus('Open a folder with an “SVG files” subfolder first.', 'err'); return false; }
@@ -1656,6 +1772,105 @@ function clearGraphic(){
   svgRaw = null; svgText = null; svgName = null;
   setGraphicSvgName('');
   scheduleRender();
+}
+
+// ---- Graphic composition (Create-Graphic dialog) ---------------------------
+// Build a NEW compound graphic by appending existing on-matrix symbols
+// left-to-right on the shared 324 guideline matrix ("1"+"0" -> "10"), with an
+// optional plural (×) indicator over any chosen component. The result is a
+// single on-matrix SVG written back to the "SVG files" folder, so it is then
+// picked and assigned exactly like any other file — creation is separate from
+// assignment (Ken, 2026-07-22). Each part keeps its own y-coordinates (all parts
+// share the matrix, so the guidelines line up automatically) and is shifted in X
+// by a translate group, which OpenSCAD's importer honours (verified against both
+// the desktop CLI and the WASM/Manifold build). See CLAUDE.md.
+
+// Read one component's SVG text from the connected "SVG files" folder.
+async function readGraphicPartText(name){
+  if (!folder || !folder.svgDir) throw new Error('No “SVG files” folder is connected.');
+  const fh = await folder.svgDir.getFileHandle(name + '.svg');
+  return (await fh.getFile()).text();
+}
+
+// Draw a multiplication-sign (×) plural indicator centred at (cx,cy).
+function addPluralMark(root, cx, cy, half, sw){
+  const SVGNS = 'http://www.w3.org/2000/svg';
+  const grp = document.createElementNS(SVGNS, 'g');
+  for (const [x1, y1, x2, y2] of [
+    [cx - half, cy - half, cx + half, cy + half],
+    [cx + half, cy - half, cx - half, cy + half],
+  ]) {
+    const ln = document.createElementNS(SVGNS, 'line');
+    ln.setAttribute('x1', fmt(x1)); ln.setAttribute('y1', fmt(y1));
+    ln.setAttribute('x2', fmt(x2)); ln.setAttribute('y2', fmt(y2));
+    ln.setAttribute('stroke', '#000'); ln.setAttribute('stroke-width', fmt(sw));
+    ln.setAttribute('stroke-linecap', 'round'); ln.setAttribute('fill', 'none');
+    grp.appendChild(ln);
+  }
+  root.appendChild(grp);
+}
+
+// Compose an ordered list of components into one on-matrix SVG string.
+// `parts` = [{ text, plural }] — `text` is a component SVG (must carry a
+// viewBox); `plural` adds a × over THAT component's ink, in the indicator band.
+// Built in the offscreen prep host so getBBox/getScreenCTM can locate each
+// component's ink for per-element plural placement.
+function composeCompound(parts){
+  parts = (parts || []).filter(p => p && p.text);
+  if (!parts.length) return null;
+  const SVGNS = 'http://www.w3.org/2000/svg';
+  const parsed = parts.map(pt => {
+    const doc = new DOMParser().parseFromString(pt.text, 'image/svg+xml');
+    if (doc.querySelector('parsererror')) throw new Error('a component SVG did not parse');
+    const r = doc.documentElement;
+    const vb = (r.getAttribute('viewBox') || '').trim().split(/[\s,]+/).map(Number);
+    if (vb.length !== 4 || !(vb[2] > 0) || !(vb[3] > 0))
+      throw new Error('a component SVG has no usable viewBox — cannot place it on the matrix');
+    return { root: r, x: vb[0], y: vb[1], w: vb[2], h: vb[3], plural: !!pt.plural };
+  });
+  const gap = BLISS_SEQUENCE_GAP_UNITS;
+  const totalW = parsed.reduce((s, p) => s + p.w, 0) + gap * (parsed.length - 1);
+  const top    = Math.min(...parsed.map(p => p.y));
+  const totalH = Math.max(...parsed.map(p => p.y + p.h)) - top;
+  const k      = totalH / BLISS_MATRIX_TALL;   // this drawing's units per canonical unit
+
+  const outRoot = document.createElementNS(SVGNS, 'svg');
+  // Carry presentation attributes from the first part's root (stroke-linecap,
+  // fill-rule, xmlns…); BCI exports are uniform so the first stands for all.
+  for (const a of parsed[0].root.attributes) outRoot.setAttribute(a.name, a.value);
+  outRoot.setAttribute('viewBox', `0 0 ${fmt(totalW)} ${fmt(totalH)}`);
+  outRoot.setAttribute('width',  fmt(totalW) + 'mm');
+  outRoot.setAttribute('height', fmt(totalH) + 'mm');
+
+  const host = getPrepHost(); host.appendChild(outRoot);
+  try {
+    let dx = 0;
+    const groups = [];
+    for (const p of parsed) {
+      const g = document.createElementNS(SVGNS, 'g');
+      g.setAttribute('transform', `translate(${fmt(dx - p.x)}, 0)`);   // align part's viewBox-left to dx; keep y
+      for (const node of [...p.root.childNodes]) g.appendChild(document.importNode(node, true));
+      outRoot.appendChild(g);
+      groups.push({ g, plural: p.plural });
+      dx += p.w + gap;
+    }
+    // Per-element plural: a × over the ink centre of each flagged component,
+    // sitting in the indicator row (midway between its top y=66 and sky line 130).
+    for (const { g, plural } of groups) {
+      if (!plural) continue;
+      let minX = Infinity, maxX = -Infinity;
+      for (const el of g.querySelectorAll(DRAWABLE)) {
+        const b = bboxInRootUnits(el, outRoot);
+        if (!b) continue;
+        minX = Math.min(minX, b.minX); maxX = Math.max(maxX, b.maxX);
+      }
+      const cx = isFinite(minX) ? (minX + maxX) / 2 : 0;
+      addPluralMark(outRoot, cx, top + 98 * k, 16 * k, BLISS_SOURCE_STROKE * k);
+    }
+    return new XMLSerializer().serializeToString(outRoot);
+  } finally {
+    outRoot.remove();
+  }
 }
 
 // ---- SVG folder picker -----------------------------------------------------
@@ -1699,17 +1914,20 @@ function renderPicker(){
   if (act) act.scrollIntoView({ block: 'nearest' });
 }
 function closeSvgPicker(){ pickerEl.hidden = true; }
+// What to do with the chosen file name. Assignment loads it as the graphic; the
+// Create-Graphic dialog overrides this to append a component instead.
+let pickerOnChoose = loadSvgByName;
 function choosePicker(i){
   if (i < 0 || i >= pickerView.length) return;
   const name = pickerView[i];
   closeSvgPicker();
-  loadSvgByName(name);
+  pickerOnChoose(name);
 }
-async function openSvgPicker(){
-  // Seed the filter with whatever is in the Graphic File box and select it, so
-  // the current name is immediately usable as a search term — keep typing to
-  // refine it, or type over it to start a fresh search.
-  const cur = String((PARAMS.find(x => x.name === 'graphic_svg') || {}).value || '').trim();
+// Open the folder picker. `onChoose(name)` receives the picked base name;
+// `seed` pre-fills the search box (and is highlighted if it names a file).
+async function openSvgPicker(onChoose, seed = ''){
+  pickerOnChoose = onChoose || loadSvgByName;
+  const cur = String(seed || '').trim();
   pickerEl.hidden = false;
   pickerFilter.value = cur; pickerActive = 0;
   pickerCount.textContent = 'loading…'; pickerListEl.innerHTML = '';
@@ -1735,6 +1953,132 @@ pickerListEl.addEventListener('click', e => { const r = e.target.closest('.picke
 pickerListEl.addEventListener('mousemove', e => { const r = e.target.closest('.picker-row'); if (r && +r.dataset.i !== pickerActive) { pickerActive = +r.dataset.i; renderPicker(); } });
 document.getElementById('pickerCancel').addEventListener('click', closeSvgPicker);
 pickerEl.addEventListener('mousedown', e => { if (e.target === pickerEl) closeSvgPicker(); });
+
+// ---- Create-Graphic dialog -------------------------------------------------
+// Build a new compound graphic from existing on-matrix symbols, preview it in
+// 2D, and save it into the SVG files folder as a new .svg. Create-only: the
+// saved file is then assigned like any other via the Graphic File picker.
+const createOverlay = document.getElementById('createOverlay');
+const createChipsEl = document.getElementById('createChips');
+const createPreview = document.getElementById('createPreview');
+const createNameEl  = document.getElementById('createName');
+let createParts = [];              // [{ name, plural }]
+const createTextCache = {};        // name -> raw SVG text (read once)
+
+function openCreateDialog(){
+  if (!folder || !folder.svgDir) { setStatus('Open a folder with an “SVG files” subfolder first.', 'err'); return; }
+  createParts = []; createNameEl.value = '';
+  createOverlay.hidden = false;
+  renderCreateChips();
+  refreshCreatePreview();
+}
+function closeCreateDialog(){ createOverlay.hidden = true; }
+
+function renderCreateChips(){
+  createChipsEl.innerHTML = '';
+  if (!createParts.length) {
+    const e = document.createElement('span'); e.className = 'seq-empty';
+    e.textContent = 'No components yet — add a symbol.';
+    createChipsEl.appendChild(e);
+  }
+  createParts.forEach((part, i) => {
+    const chip = document.createElement('div'); chip.className = 'seq-chip';
+    const mk = (txt, title, on, disabled) => {
+      const b = document.createElement('button'); b.type = 'button'; b.className = 'seq-chip-btn';
+      b.textContent = txt; b.title = title; if (disabled) b.disabled = true;
+      b.addEventListener('click', on); return b;
+    };
+    const move = (from, to) => { createParts.splice(to, 0, createParts.splice(from, 1)[0]); renderCreateChips(); refreshCreatePreview(); };
+    chip.appendChild(mk('‹', 'Move left',  () => move(i, i - 1), i === 0));
+    const nameEl = document.createElement('span'); nameEl.className = 'seq-chip-name';
+    nameEl.textContent = part.name; nameEl.title = part.name;
+    chip.appendChild(nameEl);
+    // Per-element plural toggle.
+    const pl = document.createElement('label'); pl.className = 'chip-plural'; pl.title = 'Plural (×) over this component';
+    const cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = !!part.plural;
+    cb.addEventListener('change', () => { part.plural = cb.checked; refreshCreatePreview(); });
+    pl.appendChild(cb); pl.appendChild(document.createTextNode('×'));
+    chip.appendChild(pl);
+    chip.appendChild(mk('›', 'Move right', () => move(i, i + 1), i === createParts.length - 1));
+    chip.appendChild(mk('✕', 'Remove',     () => { createParts.splice(i, 1); renderCreateChips(); refreshCreatePreview(); }, false));
+    createChipsEl.appendChild(chip);
+  });
+  document.getElementById('createSave').disabled = !createParts.length;
+}
+
+// Rebuild the 2D preview from the current components. Reads any uncached part
+// texts, composes, injects the SVG inline (the browser renders the line-art
+// natively), and overlays faint Bliss guideline references.
+async function refreshCreatePreview(){
+  if (!createParts.length) { createPreview.innerHTML = '<div class="create-empty">Add symbols to see a preview.</div>'; return; }
+  try {
+    await Promise.all(createParts.map(async p => {
+      if (createTextCache[p.name] == null) createTextCache[p.name] = await readGraphicPartText(p.name);
+    }));
+  } catch (e) { createPreview.innerHTML = `<div class="create-empty">Couldn't read a component — ${e.message}</div>`; return; }
+  let svg;
+  try { svg = composeCompound(createParts.map(p => ({ text: createTextCache[p.name], plural: p.plural }))); }
+  catch (e) { createPreview.innerHTML = `<div class="create-empty">${e.message}</div>`; return; }
+  createPreview.innerHTML = svg;
+  const el = createPreview.querySelector('svg');
+  if (el) { el.removeAttribute('width'); el.removeAttribute('height'); overlayGuidelines(el); }
+}
+
+// Draw faint sky/earth (solid) + indicator-top/mid (dashed) reference lines
+// across the preview, positioned on the compound's own matrix.
+function overlayGuidelines(svgEl){
+  const vb = (svgEl.getAttribute('viewBox') || '').trim().split(/[\s,]+/).map(Number);
+  if (vb.length !== 4) return;
+  const k = vb[3] / BLISS_MATRIX_TALL, x0 = vb[0], x1 = vb[0] + vb[2], SVGNS = 'http://www.w3.org/2000/svg';
+  const g = document.createElementNS(SVGNS, 'g');
+  const line = (yUnit, dashed) => {
+    const y = vb[1] + yUnit * k, ln = document.createElementNS(SVGNS, 'line');
+    ln.setAttribute('x1', x0); ln.setAttribute('x2', x1); ln.setAttribute('y1', y); ln.setAttribute('y2', y);
+    ln.setAttribute('stroke', '#4a90d9'); ln.setAttribute('stroke-width', 1.2 * k);
+    ln.setAttribute('opacity', dashed ? '0.35' : '0.55');
+    if (dashed) ln.setAttribute('stroke-dasharray', `${4 * k} ${4 * k}`);
+    g.appendChild(ln);
+  };
+  line(66, true); line(BLISS_SKY_LINE, false); line(194, true); line(BLISS_EARTH_LINE, false);
+  svgEl.insertBefore(g, svgEl.firstChild);   // behind the artwork
+}
+
+async function saveCreatedGraphic(){
+  const name = createNameEl.value.trim();
+  if (!name) { setStatus('Enter a name for the new graphic.', 'err'); createNameEl.focus(); return; }
+  if (/[\\/:*?"<>|]/.test(name)) { setStatus('That name has characters a file name can’t contain.', 'err'); return; }
+  if (!createParts.length) return;
+  let svg;
+  try { svg = composeCompound(createParts.map(p => ({ text: createTextCache[p.name], plural: p.plural }))); }
+  catch (e) { setStatus(`Couldn't build the graphic — ${e.message}`, 'err'); return; }
+  // Confirm before overwriting an existing file of the same name.
+  let exists = false;
+  try { await folder.svgDir.getFileHandle(name + '.svg'); exists = true; } catch {}
+  if (exists && !(await confirmDiscard(`A graphic named “${name}.svg” already exists. Overwrite it?`))) return;
+  try {
+    const fh = await folder.svgDir.getFileHandle(name + '.svg', { create: true });
+    if (!(await ensureRW(fh))) throw new Error('write permission denied');
+    const w = await fh.createWritable(); await w.write(svg); await w.close();
+    SVG_LIST = null;                       // force the Graphic File picker to re-enumerate
+    logLine(`Saved graphic: ${name}.svg (${createParts.length} component${createParts.length > 1 ? 's' : ''})`);
+    closeCreateDialog();
+    setStatus(`Saved “${name}.svg” — pick it in Graphic File to use it.`, 'ok');
+  } catch (e) { setStatus(`Save failed — ${e.message}`, 'err'); }
+}
+
+document.getElementById('createGraphicBtn').addEventListener('click', openCreateDialog);
+document.getElementById('createClose').addEventListener('click', closeCreateDialog);
+document.getElementById('createCancel').addEventListener('click', closeCreateDialog);
+document.getElementById('createSave').addEventListener('click', saveCreatedGraphic);
+document.getElementById('createAddBtn').addEventListener('click', () => {
+  openSvgPicker(async name => {
+    try { createTextCache[name] = await readGraphicPartText(name); }
+    catch (e) { setStatus(`Couldn't read “${name}.svg” — ${e.message}`, 'err'); return; }
+    createParts.push({ name, plural: false });
+    renderCreateChips(); refreshCreatePreview();
+  }, '');
+});
+createOverlay.addEventListener('mousedown', e => { if (e.target === createOverlay) closeCreateDialog(); });
 
 // Run Step-0 prep on the currently loaded SVG, then derive the scale from
 // whatever we ended up with. Prep is unconditional — every graphic the app
@@ -1807,6 +2151,8 @@ window.__strokeToOutline = strokeToOutline;
 window.__parseStrokeWidth = parseStrokeWidth;
 window.__applyPreset = applyPreset;
 window.__presetNames = () => presetNames();   // display order (alphabetical), matching the dropdown
+window.__composeCompound = composeCompound;
+window.__loadFromFolder = (dir) => loadFromFolder(dir);   // test hook: drive the UI with a mock dir
 
 // drag & drop — the only way to bring in an SVG from outside the connected
 // folder now that the header "Open SVG…" button is gone.
@@ -1925,9 +2271,12 @@ function buildForm(groups){
       if (p.desc && !NO_DESC.has(p.name)) { const d = document.createElement('span'); d.className = 'desc'; d.textContent = p.desc; field.appendChild(d); }
       let input;
       if (p.name === 'graphic_svg') {
-        // Text box + folder-picker button. Button reads "Open" when empty and
-        // "Change" once a file is chosen. Typing a name and committing loads it
-        // straight from the SVG files folder; clearing it drops the graphic.
+        // Assigning a graphic to the symbol: a text box + folder-picker button.
+        // Button reads "Open" when empty and "Change" once a file is chosen.
+        // Typing a name and committing loads it from the SVG files folder;
+        // clearing it drops the graphic. Composition of NEW graphics lives in the
+        // separate Create-Graphic dialog, which writes a finished .svg into the
+        // folder that this picker then selects like any other file.
         const wrap = document.createElement('div'); wrap.className = 'svgpick';
         input = document.createElement('input'); input.type = 'text';
         // autocomplete/autofill off: the box must show exactly graphic_svg's
@@ -1945,7 +2294,7 @@ function buildForm(groups){
           p.value = name; syncBtn();
           if (name) loadSvgByName(name); else clearGraphic();
         });
-        btn.addEventListener('click', () => openSvgPicker());
+        btn.addEventListener('click', () => openSvgPicker(loadSvgByName, input.value.trim()));
         wrap.appendChild(input); wrap.appendChild(btn); field.appendChild(wrap);
         body.appendChild(field);
         return;
@@ -2887,6 +3236,7 @@ async function loadFromFolder(dir){
   logLine(`Symbol designer file "${scadName}" — version ${sv != null ? sv : 'unknown'}`);
   if (!svgDir) logLine('Note: no "SVG files" subfolder found — the graphic picker will be empty.');
   document.getElementById('launchGate').hidden = true;
+  document.getElementById('createGraphicBtn').disabled = false;   // compose needs a connected folder
   setStatus('Ready — rendering…', 'busy');
   runRender();
   // Folder just connected — a safe moment (no unsaved edits) to pick up updates.

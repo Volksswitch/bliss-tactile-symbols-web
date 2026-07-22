@@ -7,6 +7,14 @@ User-facing changes, newest first. Each bullet is written the way a user reads i
 
 ## Unreleased (next release)
 
+- Build your own graphics from existing ones. A new Create button (next to
+  Settings, below the viewport) opens a dialog where you can string existing Bliss
+  graphics together left to right — for example "1" then "0" to make "10" — and
+  optionally place a plural mark (×) over any one of them. The result is drawn in
+  2D as you build it, with the Bliss guidelines shown for reference; give it a name
+  and save it, and it drops into your SVG files folder so you can pick it in
+  Graphic File just like the graphics that came with the app.
+
 - Concepts no longer inherit settings from each other. Choosing a concept now sets
   every setting, not just the ones that concept saved: anything it doesn't mention
   goes back to the symbol designer file's default instead of keeping the value left

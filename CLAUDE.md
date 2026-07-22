@@ -250,6 +250,43 @@ Single HTML file, one inline ES module. **No build step, no bundler** — served
     the user picks one; mapping concept names (`afraid`) onto SVG filenames
     (`afraid,frightened,scared`) is still future work. `presetBaseline` is snapshotted **after** the
     graphic is settled, so a freshly-applied preset doesn't read dirty.
+- **Create-Graphic dialog — composing new graphics (Ken, 2026-07-22):** a `#createGraphicBtn` in the
+  viewport toolbar (just left of Settings) opens `#createOverlay`, a dialog for **building a new
+  compound graphic** by appending existing on-matrix symbols left-to-right ("1"+"0" → "10"), with an
+  optional **plural (×) indicator over any individual component**. **Creation is deliberately separate
+  from assignment**: the dialog writes a finished `.svg` into the connected `SVG files/` folder, and it
+  is then picked/assigned through the ordinary Graphic File picker like any other file. This is why the
+  assignment field stayed a plain single-file picker — a compound is just one saved `.svg`.
+  - **Model — append-only, per-element plural, create-only.** Whole symbols placed side by side on the
+    shared 324 matrix; **no stacking/superimposition, no sub-element extraction, no free positioning**
+    (Ken confirmed append-only twice). Plural is a property of a *particular* component (Bliss places it
+    over one element of a compound), so each component row carries its own **×** checkbox. There is **no
+    "edit existing"** — the dialog only creates new graphics (Ken dropped edit/reopen as too complex,
+    2026-07-22); to change one, rebuild it.
+  - **Engine (`composeCompound(parts)`, `parts = [{text, plural}]`):** parses each component's viewBox,
+    lays them out at cumulative x-offsets (each part's viewBox width + `BLISS_SEQUENCE_GAP_UNITS`,
+    default 8), and places each in a `<g transform="translate(dx,0)">`. **OpenSCAD's importer honours
+    the group translate** (verified against both the desktop CLI and the WASM/Manifold build — the one
+    spike that de-risked the whole approach), so no coordinate-baking is needed. Y is untouched, so all
+    parts keep their native matrix position and the guidelines line up automatically. For a `plural`
+    part, `addPluralMark` draws a × over **that component's ink centre** (measured via `bboxInRootUnits`
+    in the compound frame), in the indicator row (midway between y=66 and the sky line 130), at the
+    source stroke width. Built in the offscreen prep host so `getBBox`/`getScreenCTM` resolve.
+  - **The saved SVG is raw on-matrix line-art** (strokes intact, `.pen1` style carried from the first
+    part, plural × as explicit-stroke `<line>`s + a fresh `viewBox`/`width`/`height` in mm). So when
+    later picked it flows through the **normal prep pipeline** (`stripIndicators` → `fattenStrokes` →
+    `strokeToOutline` → `normalizeUnits` → registration) exactly like a BCI export — nothing downstream
+    knows it was composed. Save is **always Save-As**: it prompts for a new name and confirms before
+    overwriting; it never overwrites a source implicitly. After a write, `SVG_LIST = null` so the picker
+    re-enumerates and the new file appears.
+  - **2D preview** injects the composed SVG **inline** (the browser renders the line-art natively — it
+    is *not* CSS-blind like OpenSCAD, so `.pen1` strokes show) and overlays faint **guideline
+    references** (`overlayGuidelines`: sky/earth solid, indicator-top/mid dashed) that are preview-only
+    and never saved. The picker's `openSvgPicker(onChoose, seed)` was generalised so the dialog's "+ Add
+    symbol" appends a component instead of assigning; assignment passes the default `loadSvgByName`.
+  - Test hooks: `window.__composeCompound`, `window.__loadFromFolder` (drive the whole UI with a mock
+    directory handle — the automated in-app browser can't operate the OS folder-picker dialog, so this
+    is how the dialog is verified headlessly end-to-end).
 - **SVG input:** the Graphic Info picker, or drag-and-drop onto the viewport. `parseStrokeWidth()`
   finds the dominant stroke-width. No SVG loaded → renders the bare symbol body.
 - **Header:** title + **Export STL**, nothing else. The folder is opened once through the launch gate
