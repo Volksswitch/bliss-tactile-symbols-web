@@ -3,7 +3,7 @@
 // handler purges old caches so clients get the new version on next load. It only
 // ever goes UP, and moves only at release (in lockstep with APP_RELEASE in
 // app.html and latest_app_version.json). See RELEASING.md.
-const CACHE_NAME = 'bts-v4';
+const CACHE_NAME = 'bts-v5';
 
 // The app's own shell, served over HTTP from this origin (GitHub Pages).
 // The user's .scad / .json / SVGs come from the File System Access API (local

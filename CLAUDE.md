@@ -248,7 +248,28 @@ Single HTML file, one inline ES module. **No build step, no bundler** — served
   the keyguard model (outputs beside the project files, not in Downloads). With no preset selected it
   falls back to the graphic's name, then `bliss-symbol`. One solid; display colours don't affect it.
   (A download fallback remains for the no-folder case, which shouldn't occur once a folder is open.)
-  Two-colour *export* for the mid-print filament swap is still a separate open task.
+- **Two-colour export (`exportStl2Btn`, the multi-coloured "STL" button beside the plain one):**
+  writes the **same two passes the preview already renders** — `render_part="symbol"` and
+  `render_part="graphic"` — as `<base> - body.stl` and `<base> - graphic.stl` instead of the merged
+  `"all"` solid, so a multi-material printer or a mid-print filament swap can colour the body and the
+  raised graphic separately. Both passes share one OpenSCAD coordinate system, so importing the pair
+  as parts of a single object (Bambu Studio / OrcaSlicer / PrusaSlicer all offer this on multi-file
+  import) lands them already aligned — no container format needed. Both are rendered *before*
+  anything is written, so a failed second pass can't leave a half-written pair in the folder. With no
+  graphic loaded the button refuses (there is only one part). Same `exportBaseName()` as the
+  one-piece STL and the PNG, so a concept's outputs sort together. The button carries
+  the same `#06c` lettering as the other text buttons over a hard-split two-tone background — one
+  tint per exported part — which is what marks it as the multi-colour sibling. The background is set as
+  `background-image`, not the `background` shorthand, so it survives the `.vp-btn` hover/`.active`
+  rules that repaint the background colour.
+  - **The slicer import route matters (Ken, 2026-07-22).** In PrusaSlicer: **load the body STL
+    first, then right-click it → Add Part → Load… and pick the graphic STL.** The graphic comes in
+    as a part at the correct height (Ken measured y −3.11, z 3.9) — Add Part keeps the mesh's own
+    coordinates relative to the object. **Importing both files at once does not work**: that route
+    drops each mesh onto the bed, which zeroes the graphic's Z and buries it inside the body (X/Y
+    is still right, since both parts are centred on the same origin).
+  - This makes a **3MF export unnecessary** — it had been the planned fix for the Z-drop, and the
+    operational solution removes the reason for it. Don't build one unless a different need appears.
 - **Test hook:** `window.__captureViewportPNG()` renders synchronously and returns a PNG data URL.
 - **Change control (keyguard-style, see `RELEASING.md`):** the app carries an integer `APP_RELEASE`
   (header label + console banner) and self-updates on GitHub Pages via a service worker (`sw.js`) +

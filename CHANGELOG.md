@@ -7,6 +7,17 @@ User-facing changes, newest first. Each bullet is written the way a user reads i
 
 ## Unreleased (next release)
 
+## Release 5
+
+- Two-colour printing. A second, multi-coloured STL button in the button bar saves
+  the symbol as two files — "<name> - body.stl" and "<name> - graphic.stl" — so the
+  raised graphic can be printed in a different colour from the body. In your slicer,
+  load the body file first, then right-click it and choose Add Part → Load… and pick
+  the graphic file — it drops into place at the right height automatically, and you
+  can then give each part its own filament (or use a filament change part-way through
+  the print). Load the body first: opening both files together puts the graphic in
+  the wrong place. The original single-file STL button is unchanged.
+
 ## Release 4
 
 - A button bar under the 3D view. The view buttons have moved out of the corner of

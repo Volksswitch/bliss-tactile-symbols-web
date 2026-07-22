@@ -323,6 +323,22 @@
   .vp-btn.vp-text,
   .vp-btn.vp-text:hover:not(:disabled),
   .vp-btn.vp-text.active { color: #06c; }
+  /* Two-colour STL export. The lettering is the same #06c as the other two text
+     buttons — the two-tone background alone marks it as the multi-colour one.
+     One tint per exported part (body | graphic), split down the middle with a
+     hard stop rather than a blend so it reads as two colours and not a
+     gradient, and pale enough to keep the blue letters legible. Declared as
+     background-IMAGE so it survives the
+     hover and .active rules above, which set the background *shorthand* (and so
+     would otherwise reset the image to none); those still repaint the colour
+     underneath, so both states continue to register normally. The three
+     selectors are repeated for that reason — same specificity as the .vp-btn
+     rules, winning on source order. */
+  .vp-multi,
+  .vp-multi:hover:not(:disabled),
+  .vp-multi.active {
+    background-image: linear-gradient(90deg, #dce9fd 0 50%, #fbdedd 50% 100%);
+  }
   .vp-sep { flex: 0 0 auto; width: 1px; height: 24px; background: var(--line); margin: 0 6px; }
 
   /* Console */
@@ -458,6 +474,12 @@
            folder. Stays visually "selected" (.active) and disabled for the whole
            render, then sounds a short chime — the render can run for seconds. -->
       <button class="vp-btn vp-text" id="exportBtn" title="Export as STL (3D print)" disabled>STL</button>
+      <!-- Two-colour export: the same two passes the preview already renders,
+           written as two STLs so a multi-material printer (or a mid-print
+           filament swap) can give the body and the graphic different colours.
+           The two-tone background (one tint per exported part) marks it as the
+           multi-colour sibling of the plain STL button. -->
+      <button class="vp-btn vp-text vp-multi" id="exportStl2Btn" title="Export as two STLs (body + graphic, for multi-colour printing)" disabled>STL</button>
       <!-- Save the viewport exactly as shown to a PNG beside the project files
            (the keyguard designer's PNG export). -->
       <button class="vp-btn vp-text" id="exportPngBtn" title="Export as PNG (current view)" disabled>PNG</button>
@@ -623,6 +645,9 @@ const RELEASE_NOTES = {
     "A button bar under the 3D view. The view buttons have moved out of the corner of the 3D view into a bar along the bottom, and are half again as large. Next to them are buttons to export the STL and to save a picture of the 3D view as a PNG file, both saved into your folder. The Export STL button stays lit while the export runs and chimes when it finishes.",
     "A Settings panel. The gear button at the right-hand end of the button bar opens Settings, which starts with an About tab showing the app release, the version of the symbol designer program in your folder, the license, and where the tool comes from. More settings will be added here over time.",
     "The grey title bar at the top of the page is gone, giving the 3D view more room. The app release number it used to show now lives in Settings → About."
+  ],
+  "5": [
+    "Two-colour printing. A second, multi-coloured STL button in the button bar saves the symbol as two files — \"<name> - body.stl\" and \"<name> - graphic.stl\" — so the raised graphic can be printed in a different colour from the body. In your slicer, load the body file first, then right-click it and choose Add Part → Load… and pick the graphic file — it drops into place at the right height automatically, and you can then give each part its own filament (or use a filament change part-way through the print). Load the body first: opening both files together puts the graphic in the wrong place. The original single-file STL button is unchanged."
   ]
 };
 // @@RELEASE_NOTES_END@@
@@ -2382,6 +2407,7 @@ async function runRender(){
     logLine(`Rendered in ${((performance.now() - t0) / 1000).toFixed(1)} s.`);
     setStatus('');
     document.getElementById('exportBtn').disabled = false;
+    document.getElementById('exportStl2Btn').disabled = false;
     document.getElementById('exportPngBtn').disabled = false;
   } catch (e) {
     logLine('Render error: ' + (e.message || e));
@@ -2528,6 +2554,72 @@ document.getElementById('exportBtn').addEventListener('click', async () => {
   } catch (e) {
     logLine('Export error: ' + (e.message || e));
     setStatus('Export failed — see console', 'err');
+  } finally {
+    btn.disabled = false; btn.classList.remove('active');
+  }
+});
+
+// Two-colour STL export. Writes the *same two passes the preview renders* —
+// render_part="symbol" and render_part="graphic" — as two files rather than the
+// merged render_part="all" solid, so a multi-material printer (or a mid-print
+// filament swap) can colour the body and the raised graphic separately.
+//
+// Both passes come out of OpenSCAD in one coordinate system, so a slicer lands
+// them already aligned — no user positioning, and no container format needed.
+// The import route matters, though (Ken, 2026-07-22): load the body first, then
+// right-click it and Add Part > Load... the graphic. Importing both files at
+// once instead drops each mesh onto the bed, which zeroes the graphic's Z and
+// buries it inside the body.
+//
+// Naming is "<base> - body.stl" / "<base> - graphic.stl" off the same
+// exportBaseName() the one-piece STL and the PNG use, so all the outputs for a
+// concept sort together in the folder.
+document.getElementById('exportStl2Btn').addEventListener('click', async () => {
+  const btn = document.getElementById('exportStl2Btn');
+  btn.disabled = true; btn.classList.add('active');
+  setStatus('Rendering two-colour STLs for export…', 'busy');
+  try {
+    // Nothing to split without a graphic — the merged STL is already the whole
+    // model, so say so rather than writing an identical pair of files.
+    if (!svgText){
+      setStatus('Load a graphic first — with no graphic there is only one part.', 'err');
+      return;
+    }
+    const base = exportBaseName();
+    const parts = [
+      { suffix: ' - body.stl',    args: ['-D', 'render_part="symbol"'] },
+      { suffix: ' - graphic.stl', args: ['-D', 'render_part="graphic"'] },
+    ];
+    // Render both before writing anything: a failure on the second pass then
+    // leaves no half-written pair in the folder.
+    for (const p of parts){
+      p.bytes = await renderOnce(p.args);
+      if (!p.bytes || !p.bytes.length) throw new Error(`export produced no STL for ${p.suffix.trim()}`);
+    }
+    if (folder && folder.dir){
+      if (!(await ensureRW(folder.dir))){ setStatus('Write permission denied.', 'err'); return; }
+      for (const p of parts){
+        const fname = base + p.suffix;
+        const fh = await folder.dir.getFileHandle(fname, { create: true });
+        const w = await fh.createWritable(); await w.write(new Blob([p.bytes], { type: 'model/stl' })); await w.close();
+        logLine(`Exported ${fname} (${p.bytes.length.toLocaleString()} bytes) to ${folder.dir.name}`);
+      }
+      setStatus(`Exported 2 STLs (body + graphic) to the folder`, 'ok');
+      ding();
+    } else {
+      // No folder connected (shouldn't happen once one is opened) — download both.
+      for (const p of parts){
+        const url = URL.createObjectURL(new Blob([p.bytes], { type: 'model/stl' }));
+        const a = document.createElement('a'); a.href = url; a.download = base + p.suffix;
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 4000);
+      }
+      setStatus('Downloaded 2 STLs (body + graphic)', 'ok');
+      ding();
+    }
+  } catch (e) {
+    logLine('Two-colour export error: ' + (e.message || e));
+    setStatus('Two-colour export failed — see console', 'err');
   } finally {
     btn.disabled = false; btn.classList.remove('active');
   }
