@@ -7,6 +7,18 @@ User-facing changes, newest first. Each bullet is written the way a user reads i
 
 ## Unreleased (next release)
 
+- A button bar under the 3D view. The view buttons have moved out of the corner of
+  the 3D view into a bar along the bottom, and are half again as large. Next to them
+  are buttons to export the STL and to save a picture of the 3D view as a PNG file,
+  both saved into your folder. The Export STL button stays lit while the export runs
+  and chimes when it finishes.
+- A Settings panel. The gear button at the right-hand end of the button bar opens
+  Settings, which starts with an About tab showing the app release, the version of
+  the symbol designer program in your folder, the license, and where the tool comes
+  from. More settings will be added here over time.
+- The grey title bar at the top of the page is gone, giving the 3D view more room.
+  The app release number it used to show now lives in Settings → About.
+
 ## Release 3
 
 - You can now install the designer as an app. In Chrome or Edge an install button

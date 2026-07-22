@@ -50,13 +50,6 @@
     color: var(--text); background: var(--bg);
     display: flex; flex-direction: column; height: 100vh; overflow: hidden;
   }
-  header {
-    display: flex; align-items: center; gap: 12px;
-    padding: 8px 14px; background: var(--panel); border-bottom: 1px solid var(--line);
-    flex: 0 0 auto;
-  }
-  header h1 { font-size: 15px; margin: 0; font-weight: 600; letter-spacing: .2px; }
-  header .spacer { flex: 1; }
   button, .btn {
     font: inherit; color: var(--text); background: var(--panel-2);
     border: 1px solid var(--line); border-radius: 6px; padding: 7px 12px;
@@ -201,10 +194,6 @@
     cursor: pointer; color: var(--accent); background: none; border: 0; padding: 0;
     text-decoration: underline;
   }
-  /* Running app release, shown muted in the header next to Export STL so a user
-     always has the number to quote in a support note (mirrors the console
-     banner). */
-  header .appver { font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
 
   /* "What's new" post-update notice — shown once after the app self-updates to a
      newer release. Reuses the gate overlay backdrop; its own card so the list
@@ -283,8 +272,10 @@
     font-variant-numeric: tabular-nums; color: var(--text);
   }
 
-  /* Viewport */
-  #viewport { flex: 1 1 auto; position: relative; min-width: 0; background: var(--viewport-bg); }
+  /* Viewport column — the 3D view with its button bar pinned underneath, so the
+     bar is part of the view rather than a separate app-wide header. */
+  #viewcol { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
+  #viewport { flex: 1 1 auto; position: relative; min-width: 0; min-height: 0; background: var(--viewport-bg); }
   #viewport canvas { display: block; }
   /* Drag-and-drop is still supported; the outline on dragover is the only
      affordance for it now that the standing hint text is gone. */
@@ -305,14 +296,34 @@
   #statusmsg.ok { color: var(--ok); }
   #statusmsg.err { color: var(--danger); }
   #statusmsg.busy { color: var(--accent-2); }
-  .view-cube { pointer-events: auto; display: flex; gap: 4px; }
-  .view-cube button {
-    padding: 4px 6px; min-width: 26px; line-height: 0;
-    background: rgba(255,255,255,.9); color: #333;
+  /* Button bar under the viewport (the keyguard designer's #viewport-toolbar).
+     Views on the left, then a separator and the file actions; Settings is pushed
+     to the right-hand end by the auto-margin separator before it. */
+  #viewport-toolbar {
+    flex: 0 0 auto; display: flex; align-items: center; gap: 4px;
+    padding: 0 8px; height: 44px; overflow: hidden;
+    background: var(--panel); border-top: 1px solid var(--line);
   }
-  .view-cube button:hover { background: #fff; border-color: var(--accent); color: var(--accent); }
+  /* Sized 50% up from the keyguard's 16px icon buttons: 24px glyphs in a
+     6px/9px box, so the row reads comfortably at arm's length. */
+  .vp-btn {
+    padding: 6px 9px; min-width: 39px; line-height: 0;
+    background: var(--panel-2); color: #333; border-radius: 6px;
+  }
+  .vp-btn:hover:not(:disabled) { background: #fff; border-color: var(--accent); color: var(--accent); }
+  .vp-btn.active { background: #cfe0f5; border-color: var(--accent); color: var(--accent); }
   /* currentColor lets the hover accent flow into the glyph. */
-  .view-cube button svg { width: 16px; height: 16px; display: block; pointer-events: none; }
+  .vp-btn svg { width: 24px; height: 24px; display: block; pointer-events: none; }
+  /* Text buttons (STL / PNG, as in the keyguard designer). line-height matches
+     the 24px icon box so a lettered button is exactly as tall as an icon one. */
+  .vp-text { line-height: 24px; font-size: 15px; font-weight: 600; letter-spacing: .3px; }
+  /* The keyguard designer's export-group blue (#06c literally, not this app's
+     teal accent), held through hover and the pressed .active state so the
+     lettering never flips colour mid-export. */
+  .vp-btn.vp-text,
+  .vp-btn.vp-text:hover:not(:disabled),
+  .vp-btn.vp-text.active { color: #06c; }
+  .vp-sep { flex: 0 0 auto; width: 1px; height: 24px; background: var(--line); margin: 0 6px; }
 
   /* Console */
   #console {
@@ -333,23 +344,48 @@
   /* While dragging, suppress text selection and keep the resize cursor even
      when the pointer strays off the 5px strip. */
   body.dragging, body.dragging * { user-select: none !important; cursor: col-resize !important; }
+
+  /* ---------- Settings modal (ported from the keyguard designer) ----------
+     A category list on the left and a panel on the right. Only "About" exists
+     today; the two-pane frame is here so further tabs are a one-line addition
+     to SETTINGS_PANELS. */
+  #settings-overlay { position: fixed; inset: 0; background: rgba(20,28,38,.35); display: none; z-index: 1000; }
+  #settings-overlay.open { display: block; }
+  #settings-modal {
+    position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+    width: 560px; max-width: 90vw; height: 380px; max-height: 80vh;
+    display: flex; flex-direction: column;
+    background: var(--bg); border: 1px solid var(--line); border-radius: 8px;
+    box-shadow: 0 12px 32px rgba(20,28,38,.32);
+  }
+  #settings-modal h3 {
+    margin: 0; padding: 10px 14px; border-bottom: 1px solid var(--line);
+    font-size: 14px; background: var(--panel); border-radius: 8px 8px 0 0; cursor: move;
+  }
+  #settings-body { flex: 1; display: flex; min-height: 0; }
+  #settings-cats { width: 140px; flex: 0 0 140px; border-right: 1px solid var(--line); background: var(--panel); padding: 6px 0; }
+  #settings-cats .cat { padding: 6px 14px; cursor: pointer; font-size: 12px; }
+  #settings-cats .cat:hover { background: var(--panel-2); }
+  #settings-cats .cat.active { background: #d8e6f8; color: var(--accent); font-weight: bold; }
+  #settings-panel { flex: 1; padding: 14px; overflow: auto; font-size: 12px; }
+  #settings-panel .setting > label { display: block; font-weight: bold; margin-bottom: 4px; }
+  #settings-footer { padding: 8px 14px; border-top: 1px solid var(--line); text-align: right; background: var(--panel); border-radius: 0 0 8px 8px; }
 </style>
 </head>
 <body>
 
-<header>
-  <h1>Bliss Tactile Symbol Designer</h1>
-  <span class="spacer"></span>
-  <span class="appver" id="appVer"></span>
-  <button id="exportBtn" class="primary" disabled>Export STL</button>
-</header>
-
 <main>
-  <section id="viewport">
-    <div id="status">
-      <span id="statusmsg" class="busy">Starting…</span>
-      <span class="spacer" style="flex:1"></span>
-      <span class="view-cube">
+  <div id="viewcol">
+    <section id="viewport">
+      <div id="status">
+        <span id="statusmsg" class="busy">Starting…</span>
+      </div>
+    </section>
+    <!-- Button bar under the viewport. Views at the left end, a separator, then
+         the file actions (STL / PNG), and Settings pushed to the right end. The
+         app-name/release header this replaced is gone; the release now lives on
+         the Settings → About tab. -->
+    <div id="viewport-toolbar">
         <!-- Axonometric cube icons carried over from the keyguard designer, so
              users moving between the two apps see the same visual language: a
              wireframe cube with the face being looked at filled in (dashed when
@@ -361,7 +397,7 @@
              stroke-width cancels the shrink so the lines still land at 1.6.
              Cube corners after the shrink: 4 -> 5.76, 20 -> 18.24, so an arrow
              tip at 4.8 / 19.2 stops just short of the cube. -->
-        <button data-view="front" title="Front">
+      <button class="vp-btn" data-view="front" title="Front">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true">
             <g transform="translate(12 12) scale(.78) translate(-12 -12)" stroke-width="2.05">
               <path d="M4 8.5 12 12 12 20 4 15.5Z" fill="currentColor" fill-opacity=".4" stroke="none"/>
@@ -371,7 +407,7 @@
             <path d="M1 12H4.8M3.2 10.4 4.8 12 3.2 13.6"/>
           </svg>
         </button>
-        <button data-view="top" title="Top">
+      <button class="vp-btn" data-view="top" title="Top">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true">
             <g transform="translate(12 12) scale(.78) translate(-12 -12)" stroke-width="2.05">
               <path d="M12 4 20 8.5 12 12 4 8.5Z" fill="currentColor" fill-opacity=".4" stroke="none"/>
@@ -384,7 +420,7 @@
         <!-- Bottom: the face being viewed is underneath and hidden, so there is
              nothing to fill — the plain cube plus the arrow carries the meaning
              (an earlier dashed hidden face just read as noise at 16px). -->
-        <button data-view="bottom" title="Bottom">
+      <button class="vp-btn" data-view="bottom" title="Bottom">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true">
             <g transform="translate(12 12) scale(.78) translate(-12 -12)" stroke-width="2.05">
               <path d="M12 4 20 8.5 20 15.5 12 20 4 15.5 4 8.5Z"/>
@@ -393,7 +429,7 @@
             <path d="M12 23V19.2M10.4 20.8 12 19.2 13.6 20.8"/>
           </svg>
         </button>
-        <button data-view="side" title="Side">
+      <button class="vp-btn" data-view="side" title="Side">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true">
             <g transform="translate(12 12) scale(.78) translate(-12 -12)" stroke-width="2.05">
               <path d="M20 8.5 20 15.5 12 20 12 12Z" fill="currentColor" fill-opacity=".4" stroke="none"/>
@@ -407,17 +443,35 @@
              views instead). Same cube, no face filled and no arrow — it isn't
              looking down any one axis. Drawn at the same shrunk size as the
              others so the row of icons stays visually even. -->
-        <button data-view="iso" title="Isometric">
+      <button class="vp-btn" data-view="iso" title="Isometric">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true">
             <g transform="translate(12 12) scale(.78) translate(-12 -12)" stroke-width="2.05">
               <path d="M12 4 20 8.5 20 15.5 12 20 4 15.5 4 8.5Z"/>
               <path d="M4 8.5 12 12 20 8.5M12 12V20"/>
             </g>
           </svg>
-        </button>
-      </span>
+      </button>
+
+      <div class="vp-sep"></div>
+
+      <!-- Export STL: renders the whole symbol and writes it into the connected
+           folder. Stays visually "selected" (.active) and disabled for the whole
+           render, then sounds a short chime — the render can run for seconds. -->
+      <button class="vp-btn vp-text" id="exportBtn" title="Export as STL (3D print)" disabled>STL</button>
+      <!-- Save the viewport exactly as shown to a PNG beside the project files
+           (the keyguard designer's PNG export). -->
+      <button class="vp-btn vp-text" id="exportPngBtn" title="Export as PNG (current view)" disabled>PNG</button>
+
+      <!-- Auto-margin separator: everything after it sits at the right-hand end. -->
+      <div class="vp-sep" style="margin-left:auto"></div>
+      <button class="vp-btn" id="settings-btn" title="Settings">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="3"/>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+        </svg>
+      </button>
     </div>
-  </section>
+  </div>
   <div class="hsplit" id="hsplit-cust" title="Drag to resize Customizer"></div>
   <aside id="customizer"><div style="padding:10px;color:var(--muted)">Loading…</div></aside>
 </main>
@@ -493,6 +547,24 @@
   </div>
 </div>
 
+<!-- Settings panel (the keyguard designer's, cut down to one tab). The category
+     list is the growth path: add a .cat here and a matching entry in
+     SETTINGS_PANELS and the new tab exists. -->
+<div id="settings-overlay">
+  <div id="settings-modal" role="dialog" aria-modal="true" aria-label="Settings">
+    <h3>Settings <span style="float:right; opacity:.4; font-size:11px; font-weight:normal; margin-top:1px;">drag to move</span></h3>
+    <div id="settings-body">
+      <div id="settings-cats">
+        <div class="cat active" data-cat="about">About</div>
+      </div>
+      <div id="settings-panel"></div>
+    </div>
+    <div id="settings-footer">
+      <button id="settings-close-btn" type="button">Close</button>
+    </div>
+  </div>
+</div>
+
 <script type="module">
 import * as THREE from 'three';
 import { TrackballControls } from 'three/addons/controls/TrackballControls.js';
@@ -557,9 +629,8 @@ function logLine(t){ consoleEl.textContent += (t + '\n'); consoleEl.scrollTop = 
 function setStatus(msg, kind){ statusEl.textContent = msg; statusEl.className = kind || ''; }
 
 // ---------------------------------------------------- change control (runtime)
-// The header label + console banner give the user the running release to quote
-// in a support note. Banner is logged at startup and on each folder connect.
-document.getElementById('appVer').textContent = 'app release ' + APP_RELEASE;
+// Settings → About + the console banner give the user the running release to
+// quote in a support note. Banner is logged at startup and on each folder connect.
 function logVersionBanner(){
   logLine(`Bliss Tactile Symbol Designer web app — release ${APP_RELEASE}`);
 }
@@ -1026,16 +1097,17 @@ function fitCamera(object, keepAngle){
 // Each preset carries its own up vector. Free tumble leaves camera.up pointing
 // wherever the last roll put it, so a preset has to restore it or the model
 // arrives at the right angle but arbitrarily rolled. Top and bottom look along
-// world-Z, where Z-up would be degenerate, so they use Y-up instead — bottom
-// with Y flipped, so the symbol reads the same way up as it does from the top.
+// world-Z, where Z-up would be degenerate, so they use Y-up instead. Bottom
+// shares top's +Y up (Ken, 2026-07-22), which lands the underside rotated 180°
+// in the X/Y plane relative to the mirror-image framing a flipped Y would give.
 const VIEWS = {
   front:  { dir: [0, -1, 0],          up: [0, 0, 1] },
-  bottom: { dir: [0, 0, -1],          up: [0, -1, 0] },
+  bottom: { dir: [0, 0, -1],          up: [0, 1, 0] },
   top:    { dir: [0, 0, 1],           up: [0, 1, 0] },
   side:   { dir: [1, 0, 0],           up: [0, 0, 1] },
   iso:    { dir: [0.55, -0.75, 0.5],  up: [0, 0, 1] },
 };
-document.querySelectorAll('.view-cube button').forEach(b => b.addEventListener('click', () => {
+document.querySelectorAll('#viewport-toolbar button[data-view]').forEach(b => b.addEventListener('click', () => {
   if (!modelGroup) return;
   const view = VIEWS[b.dataset.view];
   const box = new THREE.Box3().setFromObject(modelGroup);
@@ -2305,6 +2377,7 @@ async function runRender(){
     logLine(`Rendered in ${((performance.now() - t0) / 1000).toFixed(1)} s.`);
     setStatus('');
     document.getElementById('exportBtn').disabled = false;
+    document.getElementById('exportPngBtn').disabled = false;
   } catch (e) {
     logLine('Render error: ' + (e.message || e));
     setStatus('Render failed — see console', 'err');
@@ -2388,24 +2461,56 @@ window.__armProbe = (yWorld = 6, zBelowTop = 0.6) => {
 };
 
 // -------------------------------------------------------------------- export
+// Base name shared by the STL and PNG exports: the concept name if one is
+// selected, else the graphic's name, else a generic name.
+function exportBaseName(){
+  return (currentPreset || svgName || pv('graphic_svg') || 'bliss-symbol');
+}
+
+// Short two-note chime marking the end of an STL export, synthesised with
+// WebAudio so the app stays a single file with no audio asset to ship. Created
+// on demand (a browser won't let an AudioContext start before a user gesture)
+// and reused; any failure is silent — the status pill is the real confirmation.
+let audioCtx = null;
+function ding(){
+  try {
+    audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    const t0 = audioCtx.currentTime;
+    [[880, 0], [1318.5, 0.12]].forEach(([freq, at]) => {
+      const osc = audioCtx.createOscillator(), gain = audioCtx.createGain();
+      osc.type = 'sine'; osc.frequency.value = freq;
+      // Percussive envelope: instant attack, exponential decay (a linear ramp
+      // to 0 clicks; exponentialRamp can't reach 0, hence the tiny floor).
+      gain.gain.setValueAtTime(0.0001, t0 + at);
+      gain.gain.exponentialRampToValueAtTime(0.25, t0 + at + 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t0 + at + 0.45);
+      osc.connect(gain).connect(audioCtx.destination);
+      osc.start(t0 + at); osc.stop(t0 + at + 0.5);
+    });
+  } catch {}
+}
+
 // STL is written into the connected folder as "<preset name>.stl" (the keyguard
 // model: outputs live beside the project files, not in Downloads). With no preset
 // selected we fall back to the graphic's name, then a generic name.
 document.getElementById('exportBtn').addEventListener('click', async () => {
   const btn = document.getElementById('exportBtn');
-  btn.disabled = true;
+  // .active holds the button visually pressed for the whole export (which can
+  // run for seconds), so it's obvious the click registered and is still working.
+  btn.disabled = true; btn.classList.add('active');
   setStatus('Rendering STL for export…', 'busy');
   try {
     const bytes = await renderOnce(['-D', 'render_part="all"']);   // whole symbol, one solid
     if (!bytes || !bytes.length) throw new Error('export produced no STL');
-    const base = (currentPreset || svgName || pv('graphic_svg') || 'bliss-symbol');
-    const fname = base + '.stl';
+    const fname = exportBaseName() + '.stl';
     if (folder && folder.dir){
       if (!(await ensureRW(folder.dir))){ setStatus('Write permission denied.', 'err'); return; }
       const fh = await folder.dir.getFileHandle(fname, { create: true });
       const w = await fh.createWritable(); await w.write(new Blob([bytes], { type: 'model/stl' })); await w.close();
       logLine(`Exported ${fname} (${bytes.length.toLocaleString()} bytes) to ${folder.dir.name}`);
       setStatus(`Exported ${fname} to the folder`, 'ok');
+      ding();
     } else {
       // No folder connected (shouldn't happen once one is opened) — download instead.
       const url = URL.createObjectURL(new Blob([bytes], { type: 'model/stl' }));
@@ -2413,14 +2518,131 @@ document.getElementById('exportBtn').addEventListener('click', async () => {
       document.body.appendChild(a); a.click(); a.remove();
       setTimeout(() => URL.revokeObjectURL(url), 4000);
       setStatus(`Downloaded ${fname}`, 'ok');
+      ding();
     }
   } catch (e) {
     logLine('Export error: ' + (e.message || e));
     setStatus('Export failed — see console', 'err');
   } finally {
-    btn.disabled = false;
+    btn.disabled = false; btn.classList.remove('active');
   }
 });
+
+// PNG of the viewport exactly as shown (display colours and all), written into
+// the connected folder beside the STL — same naming, same place. Silent: no
+// chime, since the capture is instant and the pill already confirms it.
+document.getElementById('exportPngBtn').addEventListener('click', async () => {
+  const btn = document.getElementById('exportPngBtn');
+  btn.disabled = true; btn.classList.add('active');
+  try {
+    // Render synchronously first so the backbuffer is valid for toBlob (the
+    // same reason __captureViewportPNG does it).
+    syncSize(); controls.update(); renderer.render(scene, camera);
+    const blob = await new Promise(res => renderer.domElement.toBlob(res, 'image/png'));
+    if (!blob) throw new Error('canvas.toBlob returned null');
+    const fname = exportBaseName() + '.png';
+    if (folder && folder.dir){
+      if (!(await ensureRW(folder.dir))){ setStatus('Write permission denied.', 'err'); return; }
+      const fh = await folder.dir.getFileHandle(fname, { create: true });
+      const w = await fh.createWritable(); await w.write(blob); await w.close();
+      logLine(`Saved ${fname} (${blob.size.toLocaleString()} bytes) to ${folder.dir.name}`);
+      setStatus(`Saved ${fname} to the folder`, 'ok');
+    } else {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href = url; a.download = fname;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 4000);
+      setStatus(`Downloaded ${fname}`, 'ok');
+    }
+  } catch (e) {
+    logLine('PNG export error: ' + (e.message || e));
+    setStatus('PNG export failed — see console', 'err');
+  } finally {
+    btn.disabled = false; btn.classList.remove('active');
+  }
+});
+
+// ------------------------------------------------------------------ settings
+// One tab today (About); the panel table is the extension point — add a .cat in
+// the markup and a matching key here.
+const SETTINGS_PANELS = {
+  about: () => `
+    <div class="setting">
+      <label>Bliss Tactile Symbol Designer (web)</label>
+      <div style="margin-bottom:10px;">Release ${APP_RELEASE}</div>
+      <label>Bliss Tactile Symbol Designer (scad)</label>
+      <div style="margin-bottom:10px;">${
+        scadVersionLabel()
+      }</div>
+      <label>License</label>
+      <div style="margin-bottom:10px;">
+        CC0 1.0 Universal — dedicated to the public domain. You are free to
+        use, modify, and share this tool for any purpose, with no restrictions
+        and no attribution required.
+      </div>
+      <label>Created by</label>
+      <div>
+        Volksswitch —
+        <a href="https://www.volksswitch.org" target="_blank" rel="noopener">www.volksswitch.org</a>
+      </div>
+    </div>
+  `,
+};
+
+// The .scad in play is the one read from the connected folder, so before a
+// folder is open there is no version to report.
+function scadVersionLabel(){
+  const v = parseScadVersion(SCAD_TEXT);
+  return v == null ? 'No folder connected' : 'Version ' + v;
+}
+
+const settingsOverlay = document.getElementById('settings-overlay');
+const settingsPanelEl = document.getElementById('settings-panel');
+function renderSettingsPanel(cat){ settingsPanelEl.innerHTML = (SETTINGS_PANELS[cat] || SETTINGS_PANELS.about)(); }
+function openSettings(){
+  const cats = [...document.querySelectorAll('#settings-cats .cat')];
+  const active = cats.find(c => c.classList.contains('active')) || cats[0];
+  cats.forEach(c => c.classList.toggle('active', c === active));
+  renderSettingsPanel(active ? active.dataset.cat : 'about');
+  settingsOverlay.classList.add('open');
+}
+function closeSettings(){ settingsOverlay.classList.remove('open'); }
+document.getElementById('settings-btn').addEventListener('click', openSettings);
+document.getElementById('settings-close-btn').addEventListener('click', closeSettings);
+settingsOverlay.addEventListener('click', e => { if (e.target === settingsOverlay) closeSettings(); });
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && settingsOverlay.classList.contains('open')) closeSettings();
+});
+document.querySelectorAll('#settings-cats .cat').forEach(c => c.addEventListener('click', () => {
+  document.querySelectorAll('#settings-cats .cat').forEach(x => x.classList.remove('active'));
+  c.classList.add('active');
+  renderSettingsPanel(c.dataset.cat);
+}));
+
+// Drag the title bar to move the panel (the keyguard designer's behaviour). The
+// modal is centred with a transform, so the first drag converts that to pixel
+// coordinates before tracking the pointer.
+(function(){
+  const modal = document.getElementById('settings-modal');
+  const handle = modal.querySelector('h3');
+  let dragging = false, ox = 0, oy = 0;
+  handle.addEventListener('mousedown', e => {
+    if (modal.style.transform !== 'none'){
+      const r = modal.getBoundingClientRect();
+      modal.style.transform = 'none';
+      modal.style.left = r.left + 'px';
+      modal.style.top = r.top + 'px';
+    }
+    dragging = true; ox = e.clientX - modal.offsetLeft; oy = e.clientY - modal.offsetTop;
+    e.preventDefault();
+  });
+  document.addEventListener('mousemove', e => {
+    if (!dragging) return;
+    modal.style.left = Math.max(0, Math.min(e.clientX - ox, innerWidth - modal.offsetWidth)) + 'px';
+    modal.style.top  = Math.max(0, Math.min(e.clientY - oy, innerHeight - modal.offsetHeight)) + 'px';
+  });
+  document.addEventListener('mouseup', () => { dragging = false; });
+}());
 
 // ============================================================ local folder (FSA)
 // The app reads the .scad, the .json and the SVGs from a local folder the user
