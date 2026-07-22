@@ -7,6 +7,8 @@ User-facing changes, newest first. Each bullet is written the way a user reads i
 
 ## Unreleased (next release)
 
+## Release 4
+
 - A button bar under the 3D view. The view buttons have moved out of the corner of
   the 3D view into a bar along the bottom, and are half again as large. Next to them
   are buttons to export the STL and to save a picture of the 3D view as a PNG file,
