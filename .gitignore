@@ -10,5 +10,6 @@ node_modules/
 # Local scratch
 *.log
 
-# Claude Code machine-local settings
-.claude/settings.local.json
+# Claude Code machine-local settings (incl. launch.json — the local preview
+# server config, which points at this machine's python)
+.claude/
