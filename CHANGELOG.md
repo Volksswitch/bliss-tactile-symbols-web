@@ -7,6 +7,8 @@ User-facing changes, newest first. Each bullet is written the way a user reads i
 
 ## Unreleased (next release)
 
+## Release 7
+
 - The graphic picker always shows what is in your folder right now. Pressing Open
   or Change re-reads the SVG files folder each time, so a graphic added since you
   started the app — by the Create dialog or by you, outside the browser — is in the
