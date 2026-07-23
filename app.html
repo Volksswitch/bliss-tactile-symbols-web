@@ -2384,11 +2384,15 @@ function isDirty(){
   for (const k of Object.keys(cur)) if (cur[k] !== (presetBaseline[k] ?? '')) return true;
   return false;
 }
+// Unsaved work = edits since the baseline, OR a file that stopped matching what
+// we wrote (presetsFileSuspect). The second half is what keeps Save live after a
+// save that verified and was then undone underneath the app.
+function hasUnsavedWork(){ return isDirty() || presetsFileSuspect; }
 function updateDirty(){
   // Dirty is measured against presetBaseline, which is set when the folder opens
   // (the .scad defaults), when a preset is applied, and after each Save/Add — so a
   // change is trackable even with no named preset selected.
-  const dirty = isDirty();
+  const dirty = hasUnsavedWork();
   const marker = document.getElementById('dirtyMarker');
   if (marker) marker.classList.toggle('visible', dirty);
   const save = document.getElementById('savePresetBtn'); if (save) save.disabled = !dirty || !folder;
@@ -2575,7 +2579,11 @@ async function renamePreset(newName){
 async function selectPreset(name){
   const input = document.getElementById('presetInput');
   if (name === currentPreset) { if (input) input.value = currentPreset; return; }
-  if (currentPreset && isDirty()){
+  // Switching concepts is the thing Ken does between every save, so it is where a
+  // revert gets caught without waiting for the end of the run (2026-07-23). Costs
+  // one read of a ~450 KB file per switch.
+  await verifyPresetsFileUnchanged();
+  if (currentPreset && hasUnsavedWork()){
     const ok = await confirmDiscard(`Discard unsaved changes to “${currentPreset}”?`);
     if (!ok){ if (input) input.value = currentPreset; return; }
   }
@@ -2659,11 +2667,49 @@ function buildPresetJson(parameterSets){
 // on a OneDrive-backed folder (the .json is a cloud placeholder) a write can also
 // be reverted by the sync engine moments later. So we verify twice — immediately,
 // and again after a delay — and treat any mismatch as a failed save.
+// Ken watched the dirty dot clear on every one of the lost saves (2026-07-23),
+// which rules the exception family out: close() was RESOLVING and the bytes still
+// were not in the file. So the checks that matter are the ones that re-read, and
+// they must fire during the run, not at the end of it — a "check my work" button
+// tells you too late. Three of them, none with any UI of its own:
+//   1. before each write   — is the file still what we last wrote?
+//   2. after each write    — did the bytes actually land?
+//   3. PRESET_REVERIFY_MS later — did something put them back?
+// Check 1 also closes the last-writer-wins hole: every save rewrites the whole
+// file from memory, so a second window would otherwise silently revert the first.
 const PRESET_REVERIFY_MS = 5000;
 let presetWriteSeq = 0;
+let lastWrittenText = null;      // bytes of our last verified write, or null before one
+let presetsFileSuspect = false;  // the file stopped matching -> hold the concept dirty
 
 async function readPresetsFileText(fh){
   return (await fh.getFile()).text();
+}
+
+// Raise the alarm and keep Save live. `silent` suppresses the modal for callers
+// that are about to raise one of their own — alertModal and confirmDiscard share
+// the same overlay, so two in flight means the second silently replaces the first.
+// Awaited by every caller for the same reason.
+async function flagPresetsFileSuspect(name, when, { silent = false } = {}){
+  presetsFileSuspect = true;
+  updateDirty();
+  logLine(`WARNING: "${name}" ${when} — something outside the app (OneDrive sync, or a second copy of the app on this folder) rewrote it. Treat your last save as lost.`);
+  if (silent) return;
+  await alertModal(`“${name}” was changed from outside the app, so your last save may no longer be on disk.\n\nThis is usually OneDrive syncing the folder, or a second copy of the app open on the same folder. Close any other window on this folder, then press Save again — the concept is still marked unsaved.`);
+}
+
+// Re-read and compare against our last verified write. Silent when all is well,
+// so it can be hung off ordinary actions. Never throws: a folder that can't be
+// read right now is not evidence of a lost save.
+async function verifyPresetsFileUnchanged(){
+  if (!folder || !folder.jsonHandle || lastWrittenText == null || presetsFileSuspect) return;
+  try {
+    if ((await readPresetsFileText(folder.jsonHandle)) === lastWrittenText) return;
+  } catch (e) {
+    logLine(`WARNING: could not re-check "${folder.jsonName}": ${e.name || 'Error'}: ${e.message || e}`);
+    return;
+  }
+  await flagPresetsFileSuspect(folder.jsonName, 'changed underneath the app since your last save');
 }
 
 async function writePresetsFile(){
@@ -2671,6 +2717,18 @@ async function writePresetsFile(){
   const name = folder.jsonName || (folder.scadName.replace(/\.scad$/i, '') + '.json');
   const fh = folder.jsonHandle || await folder.dir.getFileHandle(name, { create: true });
   if (!(await ensureRW(fh))) throw new Error(`write permission denied for "${name}"`);
+
+  // Check 1. Refuse to overwrite a file that is no longer the one we wrote:
+  // blindly rewriting it from memory is exactly how one window wipes another's
+  // work. Aborts the save rather than guessing which copy is right.
+  if (lastWrittenText != null){
+    const current = await readPresetsFileText(fh);
+    if (current !== lastWrittenText){
+      await flagPresetsFileSuspect(name, 'changed underneath the app since your last save', { silent: true });
+      throw new Error(`"${name}" was changed outside the app since your last save — the save was aborted rather than overwrite it. Close any other window on this folder, then save again.`);
+    }
+  }
+
   const text = buildPresetJson(PRESETS);
   const w = await fh.createWritable(); await w.write(text); await w.close();
   folder.jsonHandle = fh; folder.jsonName = name;
@@ -2681,18 +2739,18 @@ async function writePresetsFile(){
   if (back !== text){
     throw new Error(`the file did not keep what was written — wrote ${text.length} bytes, read back ${back.length}`);
   }
+  lastWrittenText = text;
+  presetsFileSuspect = false;
 
-  // Delayed re-check for a write that lands and is then reverted underneath us
-  // (the OneDrive case). Superseded by any newer write, so a legitimate change
-  // in the meantime can't raise a false alarm. Never throws — the save already
-  // returned — it warns loudly instead.
+  // Check 3. A write that lands and is then reverted underneath us. Superseded by
+  // any newer write, so a legitimate change in the meantime can't raise a false
+  // alarm. Never throws — the save already returned — it re-dirties instead.
   const seq = ++presetWriteSeq;
   setTimeout(async () => {
     if (seq !== presetWriteSeq) return;                 // a newer write owns the file now
     try {
       if ((await readPresetsFileText(fh)) === text) return;
-      logLine(`WARNING: "${name}" changed underneath the app ${PRESET_REVERIFY_MS / 1000}s after a successful save — something outside the app (OneDrive sync, another window) rewrote it. Your last save is gone from disk.`);
-      alertModal(`“${name}” was rewritten from outside the app just after your save, so that save is no longer on disk.\n\nThis is usually OneDrive syncing the folder, or a second copy of the app open on the same folder. Close any other window on this folder, then save again.`);
+      await flagPresetsFileSuspect(name, `changed underneath the app ${PRESET_REVERIFY_MS / 1000}s after a successful save`);
     } catch (e) {
       logLine(`WARNING: could not re-check "${name}" after saving: ${e.name || 'Error'}: ${e.message || e}`);
     }
@@ -3353,6 +3411,7 @@ async function loadFromFolder(dir){
   PRESETS = presets;
   SVG_LIST = null;                 // drop the previous folder's listing
   currentPreset = ''; presetBaseline = null;
+  lastWrittenText = null; presetsFileSuspect = false;   // a different file to watch now
   buildForm(parseCustomizer(SCAD_TEXT));
   SCAD_DEFAULTS = snapshotParams();    // the built-in "design default values" entry
   presetBaseline = snapshotParams();   // baseline = the .scad defaults, so later edits read as dirty
