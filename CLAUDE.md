@@ -205,6 +205,13 @@ Single HTML file, one inline ES module. **No build step, no bundler** — served
   - **Save with no preset selected = Save As** — `savePreset` delegates to `addPreset` (prompts for a
     name) when `currentPreset` is empty, so a from-scratch config (e.g. just picking a graphic) is
     saveable without first selecting a preset.
+  - **Delete lands on the built-in defaults** (Ken, 2026-07-22): after `deletePreset` removes the row
+    and writes the file, it clears `currentPreset` and calls `applyPreset(DEFAULTS_PRESET)`. Clearing
+    the selection alone left the form still showing the *deleted* concept's values — params on screen
+    belonging to something that no longer exists — so it now falls back to "design default values",
+    the same complete starting point a fresh folder opens on. `currentPreset` is cleared first so
+    `applyPreset` doesn't early-return and nothing prompts about unsaved changes to a concept that is
+    already gone; the "Deleted …" pill is set **last**, after `applyPreset`'s "rendering…".
   - **Save / Add / Delete write the single JSON in place** (`writePresetsFile` → `createWritable`),
     formatted by `buildPresetJson` to match the on-disk style (4-space indent, keys sorted, `\/`
     escaped). **Preserving that JSON is the user's responsibility** — no app-side backup. Save/Add
@@ -224,8 +231,13 @@ Single HTML file, one inline ES module. **No build step, no bundler** — served
   Graphic Info group is a text box + a button labelled **Open** when empty / **Change** when a file is
   set. The button opens a
   search-as-you-type modal (`openSvgPicker`) over the connected folder's **`SVG files/`** subfolder —
-  `listSvgFolder` enumerates the subfolder's `FileSystemDirectoryHandle` (`.entries()`) once and
-  caches it; filtering is client-side (substring, match-anywhere, arrow-key/Enter/Esc). The modal
+  `listSvgFolder` enumerates the subfolder's `FileSystemDirectoryHandle` (`.entries()`) on **every
+  open** — the listing is **not** cached (Ken, 2026-07-22): files can appear in the folder while the
+  app is running (the Create-Graphic dialog writes there, and so does anything outside the browser),
+  and a cached list hid them until reload. Enumeration only stats directory entries — it never reads
+  a file — so it stays cheap even on OneDrive. `SVG_LIST` is now just the last listing (what
+  `renderPicker` filters over), not a cache to invalidate.
+  Filtering is client-side (substring, match-anywhere, arrow-key/Enter/Esc). The modal
   opens with the box's **current value pre-filled into the filter and selected**, so the current name
   is immediately usable as a search term (keep typing to refine, or type over it). Picking a
   file reads `SVG files/<name>.svg` through the handle (`loadSvgByName` → `getFileHandle`) and renders
@@ -307,6 +319,9 @@ Single HTML file, one inline ES module. **No build step, no bundler** — served
   the keyguard model (outputs beside the project files, not in Downloads). With no preset selected it
   falls back to the graphic's name, then `bliss-symbol`. One solid; display colours don't affect it.
   (A download fallback remains for the no-folder case, which shouldn't occur once a folder is open.)
+  - **The confirmation pill names the folder** (Ken, 2026-07-22): "Exported `<file>.stl` to the
+    `<folder>` folder", off `folder.dir.name` — "to the folder" alone didn't say *which*. The
+    two-colour STL and the PNG say it the same way.
 - **Two-colour export (`exportStl2Btn`, the multi-coloured "STL" button beside the plain one):**
   writes the **same two passes the preview already renders** — `render_part="symbol"` and
   `render_part="graphic"` — as `<base> - body.stl` and `<base> - graphic.stl` instead of the merged

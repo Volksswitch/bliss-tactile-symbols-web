@@ -762,6 +762,11 @@ const RELEASE_NOTES = {
     "Build your own graphics from existing ones. A new Create button (next to Settings, below the viewport) opens a dialog where you can string existing Bliss graphics together left to right — for example \"1\" then \"0\" to make \"10\" — and optionally place a plural mark (×) over any one of them. The result is drawn in 2D as you build it, with the Bliss guidelines shown for reference; give it a name and save it, and it drops into your SVG files folder so you can pick it in Graphic File just like the graphics that came with the app.",
     "Concepts no longer inherit settings from each other. Choosing a concept now sets every setting, not just the ones that concept saved: anything it doesn't mention goes back to the symbol designer file's default instead of keeping the value left behind by the concept you had open before. A concept now looks the same however you arrive at it. (Most of the supplied concepts don't save every setting, so this is noticeable — switching between them no longer carries over things like the velcro mounts, the earth and sky lines, or where the braille sits.)",
     "A known starting point in the Concepts list. The list now opens with \"design default values\", the same entry the desktop Customizer offers. Choosing it sets every setting back to the symbol designer file's own defaults and clears the graphic, so you can start a new concept from a known place instead of from whatever the last concept left behind. It is built in rather than saved in your concepts file, so it is always there and cannot be renamed, deleted, or saved over — pressing Save after choosing it asks for a name for a new concept."
+  ],
+  "7": [
+    "The graphic picker always shows what is in your folder right now. Pressing Open or Change re-reads the SVG files folder each time, so a graphic added since you started the app — by the Create dialog or by you, outside the browser — is in the list straight away, with no reload.",
+    "Exporting tells you where the file went. The message under the 3D view now names the folder — \"Exported afraid.stl to the Bliss Tactile Symbols folder\" — instead of just saying \"the folder\". The picture (PNG) export says the same.",
+    "Deleting a concept leaves you on the starting point. The Concepts box used to go blank while the settings on screen still belonged to the concept you had just deleted. It now loads \"design default values\", so what you see is a real, complete set of settings you can build the next concept from."
   ]
 };
 // @@RELEASE_NOTES_END@@
@@ -1875,10 +1880,13 @@ function composeCompound(parts){
 }
 
 // ---- SVG folder picker -----------------------------------------------------
-// Search-as-you-type over the served "SVG files" folder. The listing is fetched
-// once (from python http.server's directory index) and cached; filtering and
-// keyboard navigation are all client-side.
-let SVG_LIST = null;
+// Search-as-you-type over the served "SVG files" folder. The listing is
+// re-enumerated on every open (Ken, 2026-07-22) — files can arrive in the folder
+// while the app is running (the Create-Graphic dialog writes there, and so does
+// anything outside the browser), and a cached list would hide them until reload.
+// Enumeration only stats directory entries, never reads a file, so it stays cheap
+// even on OneDrive. Filtering and keyboard navigation are all client-side.
+let SVG_LIST = null;   // last listing; renderPicker() filters over it
 const pickerEl     = document.getElementById('svgPicker');
 const pickerFilter = document.getElementById('pickerFilter');
 const pickerListEl = document.getElementById('pickerList');
@@ -1886,7 +1894,6 @@ const pickerCount  = document.getElementById('pickerCount');
 let pickerView = [], pickerActive = 0;
 
 async function listSvgFolder(){
-  if (SVG_LIST) return SVG_LIST;
   if (!folder || !folder.svgDir) throw new Error('No “SVG files” folder is connected.');
   const names = [];
   for await (const [name, h] of folder.svgDir.entries()){
@@ -2060,7 +2067,7 @@ async function saveCreatedGraphic(){
     const fh = await folder.svgDir.getFileHandle(name + '.svg', { create: true });
     if (!(await ensureRW(fh))) throw new Error('write permission denied');
     const w = await fh.createWritable(); await w.write(svg); await w.close();
-    SVG_LIST = null;                       // force the Graphic File picker to re-enumerate
+    SVG_LIST = null;                       // drop the stale listing (the picker re-enumerates on open anyway)
     logLine(`Saved graphic: ${name}.svg (${createParts.length} component${createParts.length > 1 ? 's' : ''})`);
     closeCreateDialog();
     setStatus(`Saved “${name}.svg” — pick it in Graphic File to use it.`, 'ok');
@@ -2686,9 +2693,20 @@ async function deletePreset(){
   try {
     delete PRESETS[name];
     await writePresetsFile();
-    currentPreset = ''; presetBaseline = null; rebuildPresetOptions(); updateDirty();
-    setStatus(`Deleted preset “${name}”.`, 'ok');
     logLine(`Deleted preset "${name}" from ${folder.jsonName}`);
+    // Land on the built-in defaults (Ken, 2026-07-22) rather than the empty
+    // placeholder: clearing the selection left the form still showing the deleted
+    // concept's values, so the params on screen belonged to something that no
+    // longer exists. Falling back to "design default values" gives a complete,
+    // real starting point — the same one a fresh folder opens on.
+    // currentPreset is cleared first so applyPreset() doesn't early-return, and
+    // it never prompts about unsaved changes to a concept that is already gone.
+    currentPreset = ''; presetBaseline = null;
+    if (SCAD_DEFAULTS) applyPreset(DEFAULTS_PRESET);
+    else { rebuildPresetOptions(); updateDirty(); }
+    // Last, so the delete is what the pill shows — applyPreset's "rendering…" is
+    // replaced by the render's own status a moment later either way.
+    setStatus(`Deleted preset “${name}”.`, 'ok');
   } catch (e) { setStatus('Delete failed — see console', 'err'); logLine('Delete preset failed: ' + (e.message || e)); }
 }
 
@@ -2934,7 +2952,7 @@ document.getElementById('exportBtn').addEventListener('click', async () => {
       const fh = await folder.dir.getFileHandle(fname, { create: true });
       const w = await fh.createWritable(); await w.write(new Blob([bytes], { type: 'model/stl' })); await w.close();
       logLine(`Exported ${fname} (${bytes.length.toLocaleString()} bytes) to ${folder.dir.name}`);
-      setStatus(`Exported ${fname} to the folder`, 'ok');
+      setStatus(`Exported ${fname} to the ${folder.dir.name} folder`, 'ok');
       ding();
     } else {
       // No folder connected (shouldn't happen once one is opened) — download instead.
@@ -2998,7 +3016,7 @@ document.getElementById('exportStl2Btn').addEventListener('click', async () => {
         const w = await fh.createWritable(); await w.write(new Blob([p.bytes], { type: 'model/stl' })); await w.close();
         logLine(`Exported ${fname} (${p.bytes.length.toLocaleString()} bytes) to ${folder.dir.name}`);
       }
-      setStatus(`Exported 2 STLs (body + graphic) to the folder`, 'ok');
+      setStatus(`Exported 2 STLs (body + graphic) to the ${folder.dir.name} folder`, 'ok');
       ding();
     } else {
       // No folder connected (shouldn't happen once one is opened) — download both.
@@ -3037,7 +3055,7 @@ document.getElementById('exportPngBtn').addEventListener('click', async () => {
       const fh = await folder.dir.getFileHandle(fname, { create: true });
       const w = await fh.createWritable(); await w.write(blob); await w.close();
       logLine(`Saved ${fname} (${blob.size.toLocaleString()} bytes) to ${folder.dir.name}`);
-      setStatus(`Saved ${fname} to the folder`, 'ok');
+      setStatus(`Saved ${fname} to the ${folder.dir.name} folder`, 'ok');
     } else {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a'); a.href = url; a.download = fname;
@@ -3225,7 +3243,7 @@ async function loadFromFolder(dir){
   folder = { dir, scadHandle, scadName, jsonHandle, jsonName, svgDir };
   SCAD_TEXT = scadText;
   PRESETS = presets;
-  SVG_LIST = null;                 // force the picker to re-enumerate the new folder
+  SVG_LIST = null;                 // drop the previous folder's listing
   currentPreset = ''; presetBaseline = null;
   buildForm(parseCustomizer(SCAD_TEXT));
   SCAD_DEFAULTS = snapshotParams();    // the built-in "design default values" entry

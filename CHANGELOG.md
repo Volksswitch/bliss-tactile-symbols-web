@@ -7,6 +7,20 @@ User-facing changes, newest first. Each bullet is written the way a user reads i
 
 ## Unreleased (next release)
 
+- The graphic picker always shows what is in your folder right now. Pressing Open
+  or Change re-reads the SVG files folder each time, so a graphic added since you
+  started the app — by the Create dialog or by you, outside the browser — is in the
+  list straight away, with no reload.
+
+- Exporting tells you where the file went. The message under the 3D view now names
+  the folder — "Exported afraid.stl to the Bliss Tactile Symbols folder" — instead
+  of just saying "the folder". The picture (PNG) export says the same.
+
+- Deleting a concept leaves you on the starting point. The Concepts box used to go
+  blank while the settings on screen still belonged to the concept you had just
+  deleted. It now loads "design default values", so what you see is a real,
+  complete set of settings you can build the next concept from.
+
 ## Release 6
 
 - Build your own graphics from existing ones. A new Create button (next to
