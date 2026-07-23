@@ -3388,14 +3388,34 @@ function showGate(msg){
 }
 
 // Read the folder's .scad, .json and SVG files subfolder, then (re)build the UI.
+//
+// The presets file is bound BY NAME: <scad-basename>.json, the same file the
+// desktop Customizer uses. Any other .json in the folder — including "… - Copy"
+// backups the user keeps deliberately — is ignored, never read and never
+// written. The old code took the first .json the directory happened to enumerate
+// (Ken, 2026-07-23): a backup copy that sorted ahead of "Bliss Tactile
+// Symbols.json" silently became the read+write target for a whole session, so
+// saves landed in the copy and the real file never changed. Reads and writes hit
+// the same wrong handle, so nothing inside the session looked amiss — the loss
+// only showed on the next open. Matching by name makes copies harmless.
 async function loadFromFolder(dir){
-  let scadHandle = null, scadName = null, jsonHandle = null, jsonName = null, svgDir = null;
+  let scadHandle = null, scadName = null, svgDir = null;
+  const jsonByLcName = new Map();   // lowercased filename -> { name, handle }
   for await (const [name, h] of dir.entries()){
     if (h.kind === 'directory'){ if (name === 'SVG files') svgDir = h; continue; }
     if (/\.scad$/i.test(name) && !scadHandle){ scadHandle = h; scadName = name; }
-    if (/\.json$/i.test(name) && !jsonHandle){ jsonHandle = h; jsonName = name; }
+    if (/\.json$/i.test(name)) jsonByLcName.set(name.toLowerCase(), { name, handle: h });
   }
   if (!scadHandle) throw new Error('That folder has no .scad file.');
+
+  // The one .json the app owns: same basename as the .scad. Matched case-
+  // insensitively (Windows is), and if it exists we keep its ON-DISK spelling so
+  // a write reuses that exact file rather than creating a second casing of it.
+  const wantJson = scadName.replace(/\.scad$/i, '') + '.json';
+  const jsonEntry = jsonByLcName.get(wantJson.toLowerCase()) || null;
+  let jsonHandle = jsonEntry ? jsonEntry.handle : null;
+  let jsonName   = jsonEntry ? jsonEntry.name : wantJson;   // the name a first save will create
+  const ignoredJson = [...jsonByLcName.values()].filter(e => e !== jsonEntry).map(e => e.name);
   const scadText = await (await scadHandle.getFile()).text();
   let presets = null;
   if (jsonHandle){
@@ -3420,6 +3440,12 @@ async function loadFromFolder(dir){
   logVersionBanner();
   const sv = parseScadVersion(SCAD_TEXT);
   logLine(`Symbol designer file "${scadName}" — version ${sv != null ? sv : 'unknown'}`);
+  logLine(jsonHandle
+    ? `Concepts file: "${jsonName}" (${Object.keys(presets || {}).length} concept(s)).`
+    : `No "${jsonName}" in this folder yet — it will be created when you first save a concept.`);
+  if (ignoredJson.length){
+    logLine(`Ignoring ${ignoredJson.length} other .json file(s) — only "${jsonName}" is read or written: ${ignoredJson.join(', ')}`);
+  }
   if (!svgDir) logLine('Note: no "SVG files" subfolder found — the graphic picker will be empty.');
   document.getElementById('launchGate').hidden = true;
   document.getElementById('createGraphicBtn').disabled = false;   // compose needs a connected folder
