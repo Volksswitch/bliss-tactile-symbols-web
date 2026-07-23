@@ -7,6 +7,33 @@ User-facing changes, newest first. Each bullet is written the way a user reads i
 
 ## Unreleased (next release)
 
+## Release 10
+
+- The app only ever touches "Bliss Tactile Symbols.json". You can now keep extra
+  copies of your concepts file in the same folder — "Bliss Tactile Symbols -
+  Copy.json", a dated backup, anything — and the app will leave them completely
+  alone. It reads and saves concepts only in the file whose name matches your
+  symbol designer file. Before, the app used whichever .json the folder happened
+  to list first, so a backup copy could quietly become the file your saves went
+  to while the real one never changed — and you would only find out the next time
+  you opened the app. The startup log now names the concepts file it is using and
+  lists any other .json files it is ignoring.
+
+## Release 9
+
+- You find out about a lost save while you are still working, not at the end.
+  Every save now re-reads your concepts file — before writing, to be sure the
+  file is still the one it last wrote, and again just after — and it re-checks
+  once more a few seconds later and whenever you switch concepts. If anything
+  has rewritten the file behind the app's back (OneDrive syncing your folder, or
+  a second copy of the app open on the same folder), you get a message there and
+  then and the concept goes back to being marked unsaved, so pressing Save again
+  is all it takes. There is nothing new to click and nothing to remember to run.
+
+- A save can no longer wipe out work done in another window. If your concepts
+  file has changed since the app last wrote it, Save stops and tells you instead
+  of overwriting it with what this window happens to be holding.
+
 ## Release 8
 
 - Saving a concept now tells you when it didn't work. Save writes your concepts

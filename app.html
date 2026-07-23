@@ -770,6 +770,13 @@ const RELEASE_NOTES = {
   ],
   "8": [
     "Saving a concept now tells you when it didn't work. Save writes your concepts file and then reads it back to confirm the change actually arrived; if it didn't, you get a message saying so. Until now a failed save left the concept looking saved for the rest of the session — it kept its graphic, and switched, rendered and exported normally — and the change was only missing the next time you started the app. The concept is now left marked as unsaved so you can try again, and the same check covers creating, renaming and deleting a concept. The app also re-checks a moment after saving and warns you if something outside it — OneDrive syncing your folder, or a second copy of the app open on the same folder — overwrote what you just saved."
+  ],
+  "9": [
+    "You find out about a lost save while you are still working, not at the end. Every save now re-reads your concepts file — before writing, to be sure the file is still the one it last wrote, and again just after — and it re-checks once more a few seconds later and whenever you switch concepts. If anything has rewritten the file behind the app's back (OneDrive syncing your folder, or a second copy of the app open on the same folder), you get a message there and then and the concept goes back to being marked unsaved, so pressing Save again is all it takes. There is nothing new to click and nothing to remember to run.",
+    "A save can no longer wipe out work done in another window. If your concepts file has changed since the app last wrote it, Save stops and tells you instead of overwriting it with what this window happens to be holding."
+  ],
+  "10": [
+    "The app only ever touches \"Bliss Tactile Symbols.json\". You can now keep extra copies of your concepts file in the same folder — \"Bliss Tactile Symbols - Copy.json\", a dated backup, anything — and the app will leave them completely alone. It reads and saves concepts only in the file whose name matches your symbol designer file. Before, the app used whichever .json the folder happened to list first, so a backup copy could quietly become the file your saves went to while the real one never changed — and you would only find out the next time you opened the app. The startup log now names the concepts file it is using and lists any other .json files it is ignoring."
   ]
 };
 // @@RELEASE_NOTES_END@@
