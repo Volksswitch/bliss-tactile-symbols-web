@@ -7,6 +7,8 @@ User-facing changes, newest first. Each bullet is written the way a user reads i
 
 ## Unreleased (next release)
 
+## Release 11
+
 ## Release 10
 
 - The app only ever touches "Bliss Tactile Symbols.json". You can now keep extra
