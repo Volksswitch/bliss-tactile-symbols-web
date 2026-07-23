@@ -7,6 +7,8 @@ User-facing changes, newest first. Each bullet is written the way a user reads i
 
 ## Unreleased (next release)
 
+## Release 8
+
 - Saving a concept now tells you when it didn't work. Save writes your concepts
   file and then reads it back to confirm the change actually arrived; if it
   didn't, you get a message saying so. Until now a failed save left the concept
