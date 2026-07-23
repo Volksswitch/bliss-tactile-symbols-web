@@ -7,6 +7,17 @@ User-facing changes, newest first. Each bullet is written the way a user reads i
 
 ## Unreleased (next release)
 
+- Saving a concept now tells you when it didn't work. Save writes your concepts
+  file and then reads it back to confirm the change actually arrived; if it
+  didn't, you get a message saying so. Until now a failed save left the concept
+  looking saved for the rest of the session — it kept its graphic, and switched,
+  rendered and exported normally — and the change was only missing the next time
+  you started the app. The concept is now left marked as unsaved so you can try
+  again, and the same check covers creating, renaming and deleting a concept.
+  The app also re-checks a moment after saving and warns you if something outside
+  it — OneDrive syncing your folder, or a second copy of the app open on the same
+  folder — overwrote what you just saved.
+
 ## Release 7
 
 - The graphic picker always shows what is in your folder right now. Pressing Open

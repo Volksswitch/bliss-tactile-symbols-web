@@ -767,6 +767,9 @@ const RELEASE_NOTES = {
     "The graphic picker always shows what is in your folder right now. Pressing Open or Change re-reads the SVG files folder each time, so a graphic added since you started the app — by the Create dialog or by you, outside the browser — is in the list straight away, with no reload.",
     "Exporting tells you where the file went. The message under the 3D view now names the folder — \"Exported afraid.stl to the Bliss Tactile Symbols folder\" — instead of just saying \"the folder\". The picture (PNG) export says the same.",
     "Deleting a concept leaves you on the starting point. The Concepts box used to go blank while the settings on screen still belonged to the concept you had just deleted. It now loads \"design default values\", so what you see is a real, complete set of settings you can build the next concept from."
+  ],
+  "8": [
+    "Saving a concept now tells you when it didn't work. Save writes your concepts file and then reads it back to confirm the change actually arrived; if it didn't, you get a message saying so. Until now a failed save left the concept looking saved for the rest of the session — it kept its graphic, and switched, rendered and exported normally — and the change was only missing the next time you started the app. The concept is now left marked as unsaved so you can try again, and the same check covers creating, renaming and deleting a concept. The app also re-checks a moment after saving and warns you if something outside it — OneDrive syncing your folder, or a second copy of the app open on the same folder — overwrote what you just saved."
   ]
 };
 // @@RELEASE_NOTES_END@@
@@ -2546,6 +2549,7 @@ async function renamePreset(newName){
   if (PRESETS[newName] && !(await confirmDiscard(`A concept named “${newName}” exists. Replace it?`))){
     if (input) input.value = oldName; return;
   }
+  const prevSets = PRESETS;
   try {
     // Rebuild in key order so the renamed concept keeps its position in the
     // FILE rather than jumping to the end. (The dropdown sorts independently —
@@ -2559,9 +2563,11 @@ async function renamePreset(newName){
     setStatus(`Renamed “${oldName}” to “${newName}”.`, 'ok');
     logLine(`Renamed preset "${oldName}" to "${newName}" in ${folder.jsonName}`);
   } catch (e) {
-    setStatus('Rename failed — see console', 'err');
-    logLine('Rename preset failed: ' + (e.message || e));
+    PRESETS = prevSets;                    // the file still has the old name
+    currentPreset = oldName;
+    rebuildPresetOptions(); updateDirty();
     if (input) input.value = oldName;
+    await reportPresetWriteFailure(`Renaming “${oldName}” to “${newName}”`, e);
   }
 }
 
@@ -2642,14 +2648,64 @@ function buildPresetJson(parameterSets){
   }
   return JSON.stringify({ parameterSets: out, fileFormatVersion: presetFileFormatVersion }, null, 4).replace(/\//g, '\\/') + '\n';
 }
+// A write is not believed until the file has been read back (Ken, 2026-07-23).
+// The bug this closes: savePreset() updated PRESETS in memory FIRST and wrote
+// second, so a write that never landed left the session looking perfect — the
+// concept switched, rendered and exported with its graphic — while the .json on
+// disk still held the untouched original. The loss only showed at next startup.
+// 97 of the 146 concepts in the worked range were lost that way.
+//
+// close() resolving is not proof: it is the swap-file rename that can fail, and
+// on a OneDrive-backed folder (the .json is a cloud placeholder) a write can also
+// be reverted by the sync engine moments later. So we verify twice — immediately,
+// and again after a delay — and treat any mismatch as a failed save.
+const PRESET_REVERIFY_MS = 5000;
+let presetWriteSeq = 0;
+
+async function readPresetsFileText(fh){
+  return (await fh.getFile()).text();
+}
+
 async function writePresetsFile(){
   if (!folder) throw new Error('No folder is connected.');
   const name = folder.jsonName || (folder.scadName.replace(/\.scad$/i, '') + '.json');
   const fh = folder.jsonHandle || await folder.dir.getFileHandle(name, { create: true });
-  if (!(await ensureRW(fh))) throw new Error('write permission denied');
+  if (!(await ensureRW(fh))) throw new Error(`write permission denied for "${name}"`);
   const text = buildPresetJson(PRESETS);
   const w = await fh.createWritable(); await w.write(text); await w.close();
   folder.jsonHandle = fh; folder.jsonName = name;
+
+  // Immediate read-back. Anything other than the exact bytes we wrote is a
+  // failed save, and throwing here is what lets the caller roll memory back.
+  const back = await readPresetsFileText(fh);
+  if (back !== text){
+    throw new Error(`the file did not keep what was written — wrote ${text.length} bytes, read back ${back.length}`);
+  }
+
+  // Delayed re-check for a write that lands and is then reverted underneath us
+  // (the OneDrive case). Superseded by any newer write, so a legitimate change
+  // in the meantime can't raise a false alarm. Never throws — the save already
+  // returned — it warns loudly instead.
+  const seq = ++presetWriteSeq;
+  setTimeout(async () => {
+    if (seq !== presetWriteSeq) return;                 // a newer write owns the file now
+    try {
+      if ((await readPresetsFileText(fh)) === text) return;
+      logLine(`WARNING: "${name}" changed underneath the app ${PRESET_REVERIFY_MS / 1000}s after a successful save — something outside the app (OneDrive sync, another window) rewrote it. Your last save is gone from disk.`);
+      alertModal(`“${name}” was rewritten from outside the app just after your save, so that save is no longer on disk.\n\nThis is usually OneDrive syncing the folder, or a second copy of the app open on the same folder. Close any other window on this folder, then save again.`);
+    } catch (e) {
+      logLine(`WARNING: could not re-check "${name}" after saving: ${e.name || 'Error'}: ${e.message || e}`);
+    }
+  }, PRESET_REVERIFY_MS);
+}
+
+// Report a failed write the one way that can't be missed. The status pill was
+// not it: the next render calls setStatus('') and wipes it within seconds.
+async function reportPresetWriteFailure(what, e){
+  const detail = `${e && e.name ? e.name + ': ' : ''}${(e && e.message) || e}`;
+  logLine(`${what} FAILED — nothing was written to ${(folder && folder.jsonName) || 'the concepts file'}: ${detail}`);
+  setStatus(`${what} failed — nothing was saved.`, 'err');
+  await alertModal(`${what} failed. Nothing was written to your concepts file.\n\n${detail}\n\nThe concept is still marked as unsaved, so you can try again. If it keeps failing, reopen the folder from the launch screen to re-grant write permission.`);
 }
 async function savePreset(){
   if (!folder) return;
@@ -2657,13 +2713,23 @@ async function savePreset(){
   // takes the same route: it is not a row in the file, so there is nothing to
   // save over, and the edit becomes a new concept.
   if (!currentPreset || currentPreset === DEFAULTS_PRESET) return addPreset();
+  // Memory is rolled back to exactly what is on disk if the write fails, and the
+  // baseline is left alone so the concept stays dirty. Without this the session
+  // went on believing a save that never happened (Ken, 2026-07-23).
+  const name = currentPreset;
+  const had = Object.prototype.hasOwnProperty.call(PRESETS, name);
+  const prev = PRESETS[name];
   try {
-    PRESETS[currentPreset] = { ...(PRESETS[currentPreset] || {}), ...snapshotParams() };
+    PRESETS[name] = { ...(prev || {}), ...snapshotParams() };
     await writePresetsFile();
     presetBaseline = snapshotParams(); updateDirty();
-    setStatus(`Saved preset “${currentPreset}”.`, 'ok');
-    logLine(`Saved preset "${currentPreset}" to ${folder.jsonName}`);
-  } catch (e) { setStatus('Save failed — see console', 'err'); logLine('Save preset failed: ' + (e.message || e)); }
+    setStatus(`Saved preset “${name}”.`, 'ok');
+    logLine(`Saved preset "${name}" to ${folder.jsonName}`);
+  } catch (e) {
+    if (had) PRESETS[name] = prev; else delete PRESETS[name];
+    updateDirty();                       // baseline untouched -> still dirty, Save still enabled
+    await reportPresetWriteFailure(`Saving “${name}”`, e);
+  }
 }
 async function addPreset(){
   if (!folder) return;
@@ -2676,6 +2742,8 @@ async function addPreset(){
   if (!name) return;
   if (name === DEFAULTS_PRESET){ setStatus(`“${DEFAULTS_PRESET}” is the built-in starting point — choose another name.`, 'err'); return; }
   if (PRESETS[name] && !(await confirmDiscard(`A preset named “${name}” exists. Overwrite it?`))) return;
+  const had = Object.prototype.hasOwnProperty.call(PRESETS, name);
+  const prev = PRESETS[name];
   try {
     PRESETS[name] = { ...(PRESETS[currentPreset] || {}), ...snapshotParams() };
     await writePresetsFile();
@@ -2683,13 +2751,18 @@ async function addPreset(){
     presetBaseline = snapshotParams(); updateDirty();
     setStatus(`Added preset “${name}”.`, 'ok');
     logLine(`Added preset "${name}" to ${folder.jsonName}`);
-  } catch (e) { setStatus('Add failed — see console', 'err'); logLine('Add preset failed: ' + (e.message || e)); }
+  } catch (e) {
+    if (had) PRESETS[name] = prev; else delete PRESETS[name];
+    rebuildPresetOptions(); updateDirty();   // the new name must not linger in the list
+    await reportPresetWriteFailure(`Adding “${name}”`, e);
+  }
 }
 async function deletePreset(){
   if (!currentPreset || !folder) return;
   const name = currentPreset;
   if (!(await ensureRW(folder.jsonHandle || folder.dir))){ setStatus('Write permission denied.', 'err'); return; }
   if (!(await confirmDiscard(`Delete preset “${name}”? This cannot be undone.`))) return;
+  const prev = PRESETS[name];
   try {
     delete PRESETS[name];
     await writePresetsFile();
@@ -2707,7 +2780,13 @@ async function deletePreset(){
     // Last, so the delete is what the pill shows — applyPreset's "rendering…" is
     // replaced by the render's own status a moment later either way.
     setStatus(`Deleted preset “${name}”.`, 'ok');
-  } catch (e) { setStatus('Delete failed — see console', 'err'); logLine('Delete preset failed: ' + (e.message || e)); }
+  } catch (e) {
+    // Put it back: the file still has it, so the list must too. (buildPresetJson
+    // sorts on write, so re-inserting at the end costs nothing in the file.)
+    if (prev !== undefined) PRESETS[name] = prev;
+    rebuildPresetOptions(); updateDirty();
+    await reportPresetWriteFailure(`Deleting “${name}”`, e);
+  }
 }
 
 function prettify(name){ return name.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()); }
@@ -3212,6 +3291,35 @@ function confirmDiscard(message){
     const onOk = () => done(true), onCancel = () => done(false), onKey = e => { if (e.key === 'Escape') done(false); };
     ok.addEventListener('click', onOk); cancel.addEventListener('click', onCancel); document.addEventListener('keydown', onKey);
     ov.hidden = false; cancel.focus();
+  });
+}
+
+// One-button modal for things the user must not miss — a failed write, above
+// all. Reuses the confirm overlay with Cancel hidden; native alert() is avoided
+// for the same reason as native confirm() (it eats the page's user activation,
+// which a following FSA permission prompt needs). Multi-line: \n starts a new
+// paragraph. Resolves when dismissed.
+function alertModal(message){
+  return new Promise(resolve => {
+    const ov = document.getElementById('confirmOverlay');
+    const msg = document.getElementById('confirmMsg');
+    const ok = document.getElementById('confirmOk'), cancel = document.getElementById('confirmCancel');
+    msg.textContent = '';
+    for (const para of String(message).split('\n')){
+      const d = document.createElement('div');
+      d.textContent = para;
+      if (!para) d.style.height = '8px';
+      msg.appendChild(d);
+    }
+    cancel.hidden = true;
+    function done(){
+      ov.hidden = true; cancel.hidden = false;
+      ok.removeEventListener('click', done); document.removeEventListener('keydown', onKey);
+      resolve();
+    }
+    const onKey = e => { if (e.key === 'Escape' || e.key === 'Enter') done(); };
+    ok.addEventListener('click', done); document.addEventListener('keydown', onKey);
+    ov.hidden = false; ok.focus();
   });
 }
 
