@@ -269,13 +269,25 @@ Single HTML file, one inline ES module. **No build step, no bundler** — served
   from assignment**: the dialog writes a finished `.svg` into the connected `SVG files/` folder, and it
   is then picked/assigned through the ordinary Graphic File picker like any other file. This is why the
   assignment field stayed a plain single-file picker — a compound is just one saved `.svg`.
-  - **Model — append-only, per-element plural, create-only.** Whole symbols placed side by side on the
-    shared 324 matrix; **no stacking/superimposition, no sub-element extraction, no free positioning**
-    (Ken confirmed append-only twice). Plural is a property of a *particular* component (Bliss places it
-    over one element of a compound), so each component row carries its own **×** checkbox. There is **no
+  - **Model — append-only, per-element indicator, create-only.** Whole symbols placed side by side on
+    the shared 324 matrix; **no stacking/superimposition, no sub-element extraction, no free positioning**
+    (Ken confirmed append-only twice). An indicator is a property of a *particular* component (Bliss
+    places it over one element of a compound), so each component row carries its own checkboxes:
+    **×** (plural), **past** and **future** (Ken, 2026-07-23). There is **no
     "edit existing"** — the dialog only creates new graphics (Ken dropped edit/reopen as too complex,
     2026-07-22); to change one, rebuild it.
-  - **Engine (`composeCompound(parts)`, `parts = [{text, plural}]`):** parses each component's viewBox,
+    - **One indicator per component.** All three occupy the same spot in the indicator row, so ticking
+      one clears the others (`renderCreateChips`'s `flag()` helper re-renders after each change). They
+      are checkboxes rather than radios because "none" is the normal state.
+    - **The tense glyphs are the BCI characters, not an invention.** `addTenseMark` draws a shallow bow
+      whose proportions come from BCI *indicator (past action)* / *indicator (future action)* — a chord
+      2·half tall on a radius of 1.390625·half (22.25 at the BCI half of 16), so the bow is ~0.42 of its
+      height deep. **Past bows to the right** (chord on the left), **future bows to the left**; verified
+      by sampling the arc midpoint of both our path and the BCI glyph's own path and comparing sides.
+      Get the sweep flag wrong and you silently draw the *other* tense — check with `getPointAtLength`,
+      not `getBBox` (the two directions have identical bounding boxes).
+  - **Engine (`composeCompound(parts)`, `parts = [{text, plural, tense}]`, `tense` = `''|'past'|'future'`):**
+    parses each component's viewBox,
     lays them out at cumulative x-offsets (each part's viewBox width + `BLISS_SEQUENCE_GAP_UNITS`,
     default 8), and places each in a `<g transform="translate(dx,0)">`. **OpenSCAD's importer honours
     the group translate** (verified against both the desktop CLI and the WASM/Manifold build — the one
@@ -283,9 +295,16 @@ Single HTML file, one inline ES module. **No build step, no bundler** — served
     parts keep their native matrix position and the guidelines line up automatically. For a `plural`
     part, `addPluralMark` draws a × over **that component's ink centre** (measured via `bboxInRootUnits`
     in the compound frame), in the indicator row (midway between y=66 and the sky line 130), at the
-    source stroke width. Built in the offscreen prep host so `getBBox`/`getScreenCTM` resolve.
+    source stroke width; for a `tense` part `addTenseMark` puts its bow in that same spot, centred on
+    the same ink center. Built in the offscreen prep host so `getBBox`/`getScreenCTM` resolve.
+  - ⚠️ **`stripIndicators` removes these marks again on load** — they sit above the sky line, which is
+    exactly what that pass is defined to strip, so a composed graphic loaded with the default
+    `remove_Bliss_indicators` = yes prints *without* its indicator. Pre-existing (the plural × has always
+    behaved this way); set that param to **no** to keep them. Not changed unilaterally — it is a
+    behavior call, not a bug.
   - **The saved SVG is raw on-matrix line-art** (strokes intact, `.pen1` style carried from the first
-    part, plural × as explicit-stroke `<line>`s + a fresh `viewBox`/`width`/`height` in mm). So when
+    part, indicators as explicit-stroke `<line>`s / `<path>` arcs + a fresh `viewBox`/`width`/`height`
+    in mm). So when
     later picked it flows through the **normal prep pipeline** (`stripIndicators` → `fattenStrokes` →
     `strokeToOutline` → `normalizeUnits` → registration) exactly like a BCI export — nothing downstream
     knows it was composed. Save is **always Save-As**: it prompts for a new name and confirms before
@@ -619,6 +638,11 @@ reads all of these from the user's **connected folder**, never from a repo (exce
 
 ## Working conventions
 
+- **American English everywhere** (Ken, 2026-07-23). All new text — UI strings, code comments,
+  `CHANGELOG.md` bullets, this file, and anything Claude writes in chat — uses American spelling
+  ("color", "center", "behavior", "normalize"). Existing British spellings scattered through the
+  older comments and docs are left alone unless the surrounding text is being rewritten anyway;
+  don't open a sweep just to respell them.
 - **No point scoring and no attitude!** (Ken, 2026-07-21.) When Ken overrules a suggestion, that
   is the end of it — do not revisit it, do not justify the earlier position, and do not comment on
   whether a later request vindicates it. An instruction is not a proposal to be assessed: carry it

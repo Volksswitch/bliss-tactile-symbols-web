@@ -138,9 +138,9 @@
   }
   .seq-chip-btn:hover:not(:disabled) { color: var(--accent); background: var(--panel); }
   .seq-chip-btn:disabled { opacity: .3; cursor: default; }
-  .chip-plural { display: inline-flex; align-items: center; gap: 3px; font-size: 12px;
-    color: var(--muted); cursor: pointer; padding: 0 4px; user-select: none; }
-  .chip-plural input { margin: 0; }
+  .chip-ind { display: inline-flex; align-items: center; gap: 3px; font-size: 12px;
+    color: var(--muted); cursor: pointer; padding: 0 3px; user-select: none; white-space: nowrap; }
+  .chip-ind input { margin: 0; }
 
   /* Create-Graphic dialog */
   #createOverlay {
@@ -596,8 +596,9 @@
 </div>
 
 <!-- Create-Graphic dialog: build a NEW compound graphic (append existing symbols
-     left-to-right, optional per-element plural ×), preview it in 2D, and save it
-     as a new .svg in the SVG files folder. Separate from assigning a graphic. -->
+     left-to-right, optional per-element indicator — plural ×, past or future),
+     preview it in 2D, and save it as a new .svg in the SVG files folder.
+     Separate from assigning a graphic. -->
 <div id="createOverlay" hidden>
   <div id="createModal" role="dialog" aria-modal="true" aria-label="Create a graphic">
     <div class="create-head">
@@ -609,7 +610,8 @@
         <div class="create-caption">Components — left to right</div>
         <div id="createChips" class="seq-chips"></div>
         <button id="createAddBtn" type="button" class="svgpick-btn">+ Add symbol</button>
-        <p class="create-note">Tick <b>×</b> on a component to place a plural indicator over it.</p>
+        <p class="create-note">Tick <b>×</b>, <b>past</b> or <b>future</b> on a component to place that
+          indicator over it. A component carries one indicator, so ticking one clears the others.</p>
       </div>
       <div class="create-right">
         <div class="create-caption">Preview</div>
@@ -1793,7 +1795,8 @@ function clearGraphic(){
 // ---- Graphic composition (Create-Graphic dialog) ---------------------------
 // Build a NEW compound graphic by appending existing on-matrix symbols
 // left-to-right on the shared 324 guideline matrix ("1"+"0" -> "10"), with an
-// optional plural (×) indicator over any chosen component. The result is a
+// optional indicator — plural (×), past or future — over any chosen
+// component (one per component). The result is a
 // single on-matrix SVG written back to the "SVG files" folder, so it is then
 // picked and assigned exactly like any other file — creation is separate from
 // assignment (Ken, 2026-07-22). Each part keeps its own y-coordinates (all parts
@@ -1826,11 +1829,30 @@ function addPluralMark(root, cx, cy, half, sw){
   root.appendChild(grp);
 }
 
+// Draw a tense indicator — a shallow bow centered at (cx,cy), spanning 2*half
+// vertically. Shape and proportions come from the BCI characters themselves
+// (indicator (past action) / indicator (future action)): a 32-unit chord on a
+// 22.25-unit radius, so the bow is ~0.42 of its height deep. Past bows to the
+// RIGHT (chord on the left), future to the LEFT — same as the BCI glyphs.
+function addTenseMark(root, cx, cy, half, sw, which){
+  const SVGNS = 'http://www.w3.org/2000/svg';
+  const r    = 1.390625 * half;                                     // BCI 22.25 at half = 16
+  const sag  = r - Math.sqrt(Math.max(r * r - half * half, 0));     // bow depth
+  const dir  = which === 'future' ? -1 : 1;                         // +1 = bow right (past)
+  const x    = cx - dir * sag / 2;                                  // the chord side; apex is opposite
+  const p = document.createElementNS(SVGNS, 'path');
+  p.setAttribute('d', `M ${fmt(x)},${fmt(cy - half)} A ${fmt(r)},${fmt(r)} 0 0 ${dir > 0 ? 1 : 0} ${fmt(x)},${fmt(cy + half)}`);
+  p.setAttribute('stroke', '#000'); p.setAttribute('stroke-width', fmt(sw));
+  p.setAttribute('stroke-linecap', 'round'); p.setAttribute('fill', 'none');
+  root.appendChild(p);
+}
+
 // Compose an ordered list of components into one on-matrix SVG string.
-// `parts` = [{ text, plural }] — `text` is a component SVG (must carry a
-// viewBox); `plural` adds a × over THAT component's ink, in the indicator band.
+// `parts` = [{ text, plural, tense }] — `text` is a component SVG (must carry a
+// viewBox); `plural` adds a × over THAT component's ink, in the indicator band,
+// and `tense` ('past' | 'future' | '') adds the matching tense bow there instead.
 // Built in the offscreen prep host so getBBox/getScreenCTM can locate each
-// component's ink for per-element plural placement.
+// component's ink for per-element indicator placement.
 function composeCompound(parts){
   parts = (parts || []).filter(p => p && p.text);
   if (!parts.length) return null;
@@ -1842,7 +1864,7 @@ function composeCompound(parts){
     const vb = (r.getAttribute('viewBox') || '').trim().split(/[\s,]+/).map(Number);
     if (vb.length !== 4 || !(vb[2] > 0) || !(vb[3] > 0))
       throw new Error('a component SVG has no usable viewBox — cannot place it on the matrix');
-    return { root: r, x: vb[0], y: vb[1], w: vb[2], h: vb[3], plural: !!pt.plural };
+    return { root: r, x: vb[0], y: vb[1], w: vb[2], h: vb[3], plural: !!pt.plural, tense: pt.tense || '' };
   });
   const gap = BLISS_SEQUENCE_GAP_UNITS;
   const totalW = parsed.reduce((s, p) => s + p.w, 0) + gap * (parsed.length - 1);
@@ -1867,13 +1889,14 @@ function composeCompound(parts){
       g.setAttribute('transform', `translate(${fmt(dx - p.x)}, 0)`);   // align part's viewBox-left to dx; keep y
       for (const node of [...p.root.childNodes]) g.appendChild(document.importNode(node, true));
       outRoot.appendChild(g);
-      groups.push({ g, plural: p.plural });
+      groups.push({ g, plural: p.plural, tense: p.tense });
       dx += p.w + gap;
     }
-    // Per-element plural: a × over the ink centre of each flagged component,
-    // sitting in the indicator row (midway between its top y=66 and sky line 130).
-    for (const { g, plural } of groups) {
-      if (!plural) continue;
+    // Per-element indicator: a × (plural) or a bow (past/future) over the ink
+    // center of each flagged component, sitting in the indicator row (midway
+    // between its top y=66 and sky line 130). A component carries at most one.
+    for (const { g, plural, tense } of groups) {
+      if (!plural && !tense) continue;
       let minX = Infinity, maxX = -Infinity;
       for (const el of g.querySelectorAll(DRAWABLE)) {
         const b = bboxInRootUnits(el, outRoot);
@@ -1881,7 +1904,9 @@ function composeCompound(parts){
         minX = Math.min(minX, b.minX); maxX = Math.max(maxX, b.maxX);
       }
       const cx = isFinite(minX) ? (minX + maxX) / 2 : 0;
-      addPluralMark(outRoot, cx, top + 98 * k, 16 * k, BLISS_SOURCE_STROKE * k);
+      const cy = top + 98 * k, half = 16 * k, sw = BLISS_SOURCE_STROKE * k;
+      if (plural) addPluralMark(outRoot, cx, cy, half, sw);
+      else        addTenseMark(outRoot, cx, cy, half, sw, tense);
     }
     return new XMLSerializer().serializeToString(outRoot);
   } finally {
@@ -1980,7 +2005,7 @@ const createOverlay = document.getElementById('createOverlay');
 const createChipsEl = document.getElementById('createChips');
 const createPreview = document.getElementById('createPreview');
 const createNameEl  = document.getElementById('createName');
-let createParts = [];              // [{ name, plural }]
+let createParts = [];              // [{ name, plural, tense }]  tense: '' | 'past' | 'future'
 const createTextCache = {};        // name -> raw SVG text (read once)
 
 function openCreateDialog(){
@@ -2011,12 +2036,22 @@ function renderCreateChips(){
     const nameEl = document.createElement('span'); nameEl.className = 'seq-chip-name';
     nameEl.textContent = part.name; nameEl.title = part.name;
     chip.appendChild(nameEl);
-    // Per-element plural toggle.
-    const pl = document.createElement('label'); pl.className = 'chip-plural'; pl.title = 'Plural (×) over this component';
-    const cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = !!part.plural;
-    cb.addEventListener('change', () => { part.plural = cb.checked; refreshCreatePreview(); });
-    pl.appendChild(cb); pl.appendChild(document.createTextNode('×'));
-    chip.appendChild(pl);
+    // Per-element indicator toggles: plural (×) and tense (past / future). Bliss
+    // puts one indicator over an element, and all three share the same spot in
+    // the indicator row, so ticking one clears the others (re-render to show it).
+    const flag = (txt, title, isOn, set) => {
+      const lb = document.createElement('label'); lb.className = 'chip-ind'; lb.title = title;
+      const cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = isOn();
+      cb.addEventListener('change', () => { set(cb.checked); renderCreateChips(); refreshCreatePreview(); });
+      lb.appendChild(cb); lb.appendChild(document.createTextNode(txt));
+      return lb;
+    };
+    chip.appendChild(flag('×', 'Plural (×) indicator over this component',
+      () => !!part.plural, on => { part.plural = on; if (on) part.tense = ''; }));
+    chip.appendChild(flag('past', 'Past-action indicator over this component',
+      () => part.tense === 'past', on => { part.tense = on ? 'past' : ''; if (on) part.plural = false; }));
+    chip.appendChild(flag('future', 'Future-action indicator over this component',
+      () => part.tense === 'future', on => { part.tense = on ? 'future' : ''; if (on) part.plural = false; }));
     chip.appendChild(mk('›', 'Move right', () => move(i, i + 1), i === createParts.length - 1));
     chip.appendChild(mk('✕', 'Remove',     () => { createParts.splice(i, 1); renderCreateChips(); refreshCreatePreview(); }, false));
     createChipsEl.appendChild(chip);
@@ -2035,7 +2070,7 @@ async function refreshCreatePreview(){
     }));
   } catch (e) { createPreview.innerHTML = `<div class="create-empty">Couldn't read a component — ${e.message}</div>`; return; }
   let svg;
-  try { svg = composeCompound(createParts.map(p => ({ text: createTextCache[p.name], plural: p.plural }))); }
+  try { svg = composeCompound(createParts.map(p => ({ text: createTextCache[p.name], plural: p.plural, tense: p.tense }))); }
   catch (e) { createPreview.innerHTML = `<div class="create-empty">${e.message}</div>`; return; }
   createPreview.innerHTML = svg;
   const el = createPreview.querySelector('svg');
@@ -2067,7 +2102,7 @@ async function saveCreatedGraphic(){
   if (/[\\/:*?"<>|]/.test(name)) { setStatus('That name has characters a file name can’t contain.', 'err'); return; }
   if (!createParts.length) return;
   let svg;
-  try { svg = composeCompound(createParts.map(p => ({ text: createTextCache[p.name], plural: p.plural }))); }
+  try { svg = composeCompound(createParts.map(p => ({ text: createTextCache[p.name], plural: p.plural, tense: p.tense }))); }
   catch (e) { setStatus(`Couldn't build the graphic — ${e.message}`, 'err'); return; }
   // Confirm before overwriting an existing file of the same name.
   let exists = false;
@@ -2092,7 +2127,7 @@ document.getElementById('createAddBtn').addEventListener('click', () => {
   openSvgPicker(async name => {
     try { createTextCache[name] = await readGraphicPartText(name); }
     catch (e) { setStatus(`Couldn't read “${name}.svg” — ${e.message}`, 'err'); return; }
-    createParts.push({ name, plural: false });
+    createParts.push({ name, plural: false, tense: '' });
     renderCreateChips(); refreshCreatePreview();
   }, '');
 });

@@ -7,6 +7,13 @@ User-facing changes, newest first. Each bullet is written the way a user reads i
 
 ## Unreleased (next release)
 
+- "Create a graphic" can now put a past or future indicator over a component, not
+  just a plural one. Each component in the dialog has three tick boxes — ×, past
+  and future — and a component carries one indicator at a time, so ticking one
+  clears the others. The past and future marks are the standard Blissymbolics
+  characters: a shallow bow in the indicator row, curving to the right for past
+  and to the left for future.
+
 ## Release 11
 
 ## Release 10
