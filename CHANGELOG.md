@@ -7,6 +7,8 @@ User-facing changes, newest first. Each bullet is written the way a user reads i
 
 ## Unreleased (next release)
 
+## Release 12
+
 - "Create a graphic" can now put a past or future indicator over a component, not
   just a plural one. Each component in the dialog has three tick boxes — ×, past
   and future — and a component carries one indicator at a time, so ticking one
