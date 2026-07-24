@@ -7,6 +7,8 @@ User-facing changes, newest first. Each bullet is written the way a user reads i
 
 ## Unreleased (next release)
 
+## Release 13
+
 - "Remove Bliss Indicators" no longer removes an indicator you added yourself. It
   now takes off only the indicator that came built into the BCI graphic, and
   leaves anything you ticked on in "Create a graphic" in place. Before, both were
