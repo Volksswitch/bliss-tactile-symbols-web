@@ -309,10 +309,23 @@ Single HTML file, one inline ES module. **No build step, no bundler** — served
       it survives being re-used as a component of a *later* compound (`composeCompound` imports child
       nodes wholesale). Verified against the desktop OpenSCAD CLI that the importer treats a `<g>` with
       an unknown attribute like any other group — a two-square probe imported both squares, 24 facets.
-    - **The dialog's 2D preview mirrors the strip** (Ken, 2026-07-23) — see the preview bullet below.
-  - **The saved SVG is raw on-matrix line-art** (strokes intact, `.pen1` style carried from the first
+    - **A component that is given an indicator replaces its built-in one** (Ken, 2026-07-23), baked
+      into the composed artwork — one indicator per element, so the new mark can't land on top of the
+      old one. Scoped to that component; a sibling keeps its own. The mark is then centered on what's
+      *left* of the component's ink, not on the indicator it just shed.
+    - **The dialog has its OWN "remove Bliss indicators" checkbox** (`#createStripBuiltIn` →
+      `composeCompound`'s `opts.stripBuiltIn`), which extends that removal to the components that
+      weren't given an indicator. It is **not** the Customizer's `remove_Bliss_indicators` and must not
+      be wired to it (Ken, 2026-07-23): **the Create-Graphic button is independent of any particular
+      concept, while that param belongs to the concept being designed.** An earlier version read the
+      form via `pv()` — that was the wrong axis. Resets to on with each dialog open, since it belongs
+      to the graphic being built, not to the session.
+    - **Baking is safe because the compound is saved under a NEW name** — the source component files
+      keep their own indicators either way, which is what makes this a compositional choice rather
+      than destructive editing. Preview and saved file are therefore the same bytes.
+  - **The saved SVG is on-matrix line-art** (strokes intact, `.pen1` style carried from the first
     part, indicators as explicit-stroke `<line>`s / `<path>` arcs + a fresh `viewBox`/`width`/`height`
-    in mm). So when
+    in mm; built-in indicators removed per the rules above). So when
     later picked it flows through the **normal prep pipeline** (`stripIndicators` → `fattenStrokes` →
     `strokeToOutline` → `normalizeUnits` → registration) exactly like a BCI export — nothing downstream
     knows it was composed. Save is **always Save-As**: it prompts for a new name and confirms before
@@ -322,17 +335,9 @@ Single HTML file, one inline ES module. **No build step, no bundler** — served
     is *not* CSS-blind like OpenSCAD, so `.pen1` strokes show) and overlays faint **guideline
     references** (`overlayGuidelines`: sky/earth solid, indicator-top/mid dashed) that are preview-only
     and never saved.
-    - **It mirrors the strip** (Ken, 2026-07-23). `previewSvgFor` runs the composed art through
-      `stripIndicators` under the *same* `remove_Bliss_indicators` gate `applyPrep` uses, so a
-      component's built-in BCI indicator vanishes here exactly as it will on the symbol, and an added
-      indicator is left sitting alone in the row instead of overlapping it. It calls the same function
-      the prep pipeline calls, so preview and render cannot drift apart. Set the param to **no** and
-      the built-in indicator reappears in the preview too.
-    - ⚠️ **The saved file is still the raw composed art** — `saveCreatedGraphic` composes for itself
-      and never goes through `previewSvgFor`. The strip is a *display* of what the render will do, not
-      an edit of the artwork; baking it into the file would make `remove_Bliss_indicators = no`
-      unable to bring the built-in indicator back. `#createPreviewNote` says so on screen whenever the
-      preview is hiding something the file still contains. The picker's `openSvgPicker(onChoose, seed)` was generalised so the dialog's "+ Add
+    - **What the preview shows is exactly what Save writes** — both call `composeCompound` with the
+      same `createComposeOpts()`, so there is nothing to explain away and no divergence note (an
+      earlier `#createPreviewNote` existed for exactly that and is gone). The picker's `openSvgPicker(onChoose, seed)` was generalised so the dialog's "+ Add
     symbol" appends a component instead of assigning; assignment passes the default `loadSvgByName`.
   - Test hooks: `window.__composeCompound`, `window.__loadFromFolder` (drive the whole UI with a mock
     directory handle — the automated in-app browser can't operate the OS folder-picker dialog, so this

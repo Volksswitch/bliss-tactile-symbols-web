@@ -170,6 +170,9 @@
   .create-left .svgpick-btn { align-self: flex-start; }
   .create-note { font-size: 11px; color: var(--muted); margin: 2px 0 0; }
   .create-note b { color: var(--text); }
+  .create-opt { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text);
+    cursor: pointer; user-select: none; margin-top: 6px; }
+  .create-opt input { margin: 0; }
   .create-preview {
     flex: 1 1 auto; display: flex; align-items: center; justify-content: center;
     min-height: 260px; background: #fff; border: 1px solid var(--line); border-radius: 6px; padding: 10px;
@@ -611,12 +614,16 @@
         <div id="createChips" class="seq-chips"></div>
         <button id="createAddBtn" type="button" class="svgpick-btn">+ Add symbol</button>
         <p class="create-note">Tick <b>×</b>, <b>past</b> or <b>future</b> on a component to place that
-          indicator over it. A component carries one indicator, so ticking one clears the others.</p>
+          indicator over it. A component carries one indicator, so ticking one clears the others —
+          including an indicator the component was drawn with.</p>
+        <label class="create-opt" title="Take the indicator a component was drawn with off the new graphic">
+          <input id="createStripBuiltIn" type="checkbox" checked>
+          Remove Bliss indicators the components came with
+        </label>
       </div>
       <div class="create-right">
         <div class="create-caption">Preview</div>
         <div id="createPreview" class="create-preview"></div>
-        <p id="createPreviewNote" class="create-note" hidden></p>
       </div>
     </div>
     <div class="create-foot">
@@ -788,7 +795,7 @@ const RELEASE_NOTES = {
     "\"Remove Bliss Indicators\" no longer removes an indicator you added yourself. It now takes off only the indicator that came built into the BCI graphic, and leaves anything you ticked on in \"Create a graphic\" in place. Before, both were removed together — so if the graphic already carried an indicator, adding your own put two marks in the same spot and then lost them both."
   ],
   "14": [
-    "The preview in \"Create a graphic\" now shows what the finished symbol will show. An indicator that came built into a component is hidden there, just as it is taken off the symbol, so an indicator you tick on stands on its own instead of sitting on top of the built-in one. A line under the preview tells you when something is being hidden — it is still there in the saved file, and turning \"Remove Bliss Indicators\" off brings it back into the preview."
+    "\"Create a graphic\" now deals with the indicators your components were drawn with, so your own indicator no longer lands on top of one. Tick ×, past or future on a component and it replaces that component's built-in indicator rather than sitting on it. There is also a new \"Remove Bliss indicators the components came with\" tick box in the dialog, on by default, which takes them off the other components too. The preview shows exactly what gets saved. Your original symbol files are untouched — the new graphic is saved under its own name."
   ]
 };
 // @@RELEASE_NOTES_END@@
@@ -1882,9 +1889,12 @@ function addTenseMark(root, cx, cy, half, sw, which){
 // `parts` = [{ text, plural, tense }] — `text` is a component SVG (must carry a
 // viewBox); `plural` adds a × over THAT component's ink, in the indicator band,
 // and `tense` ('past' | 'future' | '') adds the matching tense bow there instead.
+// A component that is given an indicator REPLACES its built-in one (see below).
+// `opts.stripBuiltIn` extends that to the components that were NOT given one, so
+// the whole compound comes out clean of the indicators its parts were drawn with.
 // Built in the offscreen prep host so getBBox/getScreenCTM can locate each
 // component's ink for per-element indicator placement.
-function composeCompound(parts){
+function composeCompound(parts, opts = {}){
   parts = (parts || []).filter(p => p && p.text);
   if (!parts.length) return null;
   const SVGNS = 'http://www.w3.org/2000/svg';
@@ -1926,14 +1936,30 @@ function composeCompound(parts){
     // Per-element indicator: a × (plural) or a bow (past/future) over the ink
     // center of each flagged component, sitting in the indicator row (midway
     // between its top y=66 and sky line 130). A component carries at most one.
+    // Removing the indicator a component was DRAWN with, baked into the composed
+    // file (Ken, 2026-07-23). Two reasons a component sheds it:
+    //   - it is being given an indicator here — one indicator per element, so the
+    //     new one replaces the old rather than landing on top of it; or
+    //   - `opts.stripBuiltIn`, the dialog's own checkbox.
+    // Baking is safe because the compound is saved under a NEW name: the source
+    // component file keeps its indicator either way. Same geometric test
+    // `stripIndicators` uses, with its safety net — if everything in the component
+    // sits above the sky line then the matrix assumption is wrong and we would be
+    // deleting the symbol itself, so nothing is touched.
+    const skyLine = top + BLISS_SKY_LINE * k;
     for (const { g, plural, tense } of groups) {
-      if (!plural && !tense) continue;
-      let minX = Infinity, maxX = -Infinity;
-      for (const el of g.querySelectorAll(DRAWABLE)) {
-        const b = bboxInRootUnits(el, outRoot);
-        if (!b) continue;
-        minX = Math.min(minX, b.minX); maxX = Math.max(maxX, b.maxX);
+      const boxes = [...g.querySelectorAll(DRAWABLE)]
+        .map(el => ({ el, b: bboxInRootUnits(el, outRoot) })).filter(x => x.b);
+      const builtIn = boxes.filter(x => x.b.maxY <= skyLine);
+      let keep = boxes;
+      if ((plural || tense || opts.stripBuiltIn) && builtIn.length && builtIn.length < boxes.length) {
+        builtIn.forEach(x => x.el.remove());
+        keep = boxes.filter(x => !builtIn.includes(x));
       }
+      if (!plural && !tense) continue;
+      // Center on what's left — the symbol's own ink, not the indicator it just shed.
+      let minX = Infinity, maxX = -Infinity;
+      for (const { b } of keep) { minX = Math.min(minX, b.minX); maxX = Math.max(maxX, b.maxX); }
       const cx = isFinite(minX) ? (minX + maxX) / 2 : 0;
       const cy = top + 98 * k, half = 16 * k, sw = BLISS_SOURCE_STROKE * k;
       if (plural) addPluralMark(outRoot, cx, cy, half, sw);
@@ -2042,6 +2068,9 @@ const createTextCache = {};        // name -> raw SVG text (read once)
 function openCreateDialog(){
   if (!folder || !folder.svgDir) { setStatus('Open a folder with an “SVG files” subfolder first.', 'err'); return; }
   createParts = []; createNameEl.value = '';
+  // Back to the default on each open, like the rest of the dialog's state — the
+  // option belongs to the graphic being built, not to the session.
+  document.getElementById('createStripBuiltIn').checked = true;
   createOverlay.hidden = false;
   renderCreateChips();
   refreshCreatePreview();
@@ -2090,46 +2119,34 @@ function renderCreateChips(){
   document.getElementById('createSave').disabled = !createParts.length;
 }
 
-// Rebuild the 2D preview from the current components. Reads any uncached part
-// texts, composes, injects the SVG inline (the browser renders the line-art
-// natively), and overlays faint Bliss guideline references.
-//
-// The preview MIRRORS THE STRIP (Ken, 2026-07-23): it shows the composed art with
-// `stripIndicators` applied, under the same `remove_Bliss_indicators` gate the
-// render uses, so a component's built-in BCI indicator disappears here exactly as
-// it will on the symbol — and the indicator you ticked on is left sitting alone in
-// the row instead of overlapping it. Literally the same function the prep pipeline
-// calls, so the two cannot drift apart. The SAVED file is still the raw composed
-// art (`saveCreatedGraphic` composes for itself): the strip is a display of what
-// the render will do, not an edit of the artwork, and flipping the param back to
-// "no" must still bring the built-in indicator back.
-function previewSvgFor(parts){
-  const svg = composeCompound(parts);
-  if (!svg || (pv('remove_Bliss_indicators') ?? 'yes') === 'no') return { svg, removed: 0, shape: null };
-  const s = stripIndicators(svg);
-  return { svg: s.svg, removed: s.removed, shape: s.shape };
+// The dialog's own indicator-removal option. It is NOT the Customizer's
+// `remove_Bliss_indicators` (Ken, 2026-07-23): the Create-Graphic button is
+// independent of any particular concept, while that param belongs to the concept
+// being designed, so the dialog carries its own control and never reads the form.
+// It is baked into the artwork the dialog composes — preview and saved file are
+// the same bytes — which is sound because the compound is saved under a NEW name
+// and the source components keep their own indicators.
+function createComposeOpts(){
+  return { stripBuiltIn: !!document.getElementById('createStripBuiltIn')?.checked };
 }
 
+// Rebuild the 2D preview from the current components. Reads any uncached part
+// texts, composes, injects the SVG inline (the browser renders the line-art
+// natively), and overlays faint Bliss guideline references. What you see here is
+// exactly what Save writes.
 async function refreshCreatePreview(){
-  const note = document.getElementById('createPreviewNote');
-  const setNote = txt => { note.hidden = !txt; note.textContent = txt || ''; };
-  if (!createParts.length) { createPreview.innerHTML = '<div class="create-empty">Add symbols to see a preview.</div>'; setNote(''); return; }
+  if (!createParts.length) { createPreview.innerHTML = '<div class="create-empty">Add symbols to see a preview.</div>'; return; }
   try {
     await Promise.all(createParts.map(async p => {
       if (createTextCache[p.name] == null) createTextCache[p.name] = await readGraphicPartText(p.name);
     }));
-  } catch (e) { createPreview.innerHTML = `<div class="create-empty">Couldn't read a component — ${e.message}</div>`; setNote(''); return; }
-  let out;
-  try { out = previewSvgFor(createParts.map(p => ({ text: createTextCache[p.name], plural: p.plural, tense: p.tense }))); }
-  catch (e) { createPreview.innerHTML = `<div class="create-empty">${e.message}</div>`; setNote(''); return; }
-  createPreview.innerHTML = out.svg;
+  } catch (e) { createPreview.innerHTML = `<div class="create-empty">Couldn't read a component — ${e.message}</div>`; return; }
+  let svg;
+  try { svg = composeCompound(createParts.map(p => ({ text: createTextCache[p.name], plural: p.plural, tense: p.tense })), createComposeOpts()); }
+  catch (e) { createPreview.innerHTML = `<div class="create-empty">${e.message}</div>`; return; }
+  createPreview.innerHTML = svg;
   const el = createPreview.querySelector('svg');
   if (el) { el.removeAttribute('width'); el.removeAttribute('height'); overlayGuidelines(el); }
-  // Say so when the preview is hiding something the file still contains, so the
-  // difference between this and the saved artwork is never a surprise.
-  setNote(out.removed
-    ? `A built-in indicator (${out.shape}) is hidden here — “Remove Bliss Indicators” takes it off the symbol. It stays in the saved file.`
-    : '');
 }
 
 // Draw faint sky/earth (solid) + indicator-top/mid (dashed) reference lines
@@ -2157,7 +2174,7 @@ async function saveCreatedGraphic(){
   if (/[\\/:*?"<>|]/.test(name)) { setStatus('That name has characters a file name can’t contain.', 'err'); return; }
   if (!createParts.length) return;
   let svg;
-  try { svg = composeCompound(createParts.map(p => ({ text: createTextCache[p.name], plural: p.plural, tense: p.tense }))); }
+  try { svg = composeCompound(createParts.map(p => ({ text: createTextCache[p.name], plural: p.plural, tense: p.tense })), createComposeOpts()); }
   catch (e) { setStatus(`Couldn't build the graphic — ${e.message}`, 'err'); return; }
   // Confirm before overwriting an existing file of the same name.
   let exists = false;
@@ -2178,6 +2195,7 @@ document.getElementById('createGraphicBtn').addEventListener('click', openCreate
 document.getElementById('createClose').addEventListener('click', closeCreateDialog);
 document.getElementById('createCancel').addEventListener('click', closeCreateDialog);
 document.getElementById('createSave').addEventListener('click', saveCreatedGraphic);
+document.getElementById('createStripBuiltIn').addEventListener('change', refreshCreatePreview);
 document.getElementById('createAddBtn').addEventListener('click', () => {
   openSvgPicker(async name => {
     try { createTextCache[name] = await readGraphicPartText(name); }

@@ -7,12 +7,14 @@ User-facing changes, newest first. Each bullet is written the way a user reads i
 
 ## Unreleased (next release)
 
-- The preview in "Create a graphic" now shows what the finished symbol will show.
-  An indicator that came built into a component is hidden there, just as it is
-  taken off the symbol, so an indicator you tick on stands on its own instead of
-  sitting on top of the built-in one. A line under the preview tells you when
-  something is being hidden — it is still there in the saved file, and turning
-  "Remove Bliss Indicators" off brings it back into the preview.
+- "Create a graphic" now deals with the indicators your components were drawn
+  with, so your own indicator no longer lands on top of one. Tick ×, past or
+  future on a component and it replaces that component's built-in indicator
+  rather than sitting on it. There is also a new "Remove Bliss indicators the
+  components came with" tick box in the dialog, on by default, which takes them
+  off the other components too. The preview shows exactly what gets saved. Your
+  original symbol files are untouched — the new graphic is saved under its own
+  name.
 
 ## Release 13
 
