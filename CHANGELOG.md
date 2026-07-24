@@ -7,6 +7,12 @@ User-facing changes, newest first. Each bullet is written the way a user reads i
 
 ## Unreleased (next release)
 
+- "Remove Bliss Indicators" no longer removes an indicator you added yourself. It
+  now takes off only the indicator that came built into the BCI graphic, and
+  leaves anything you ticked on in "Create a graphic" in place. Before, both were
+  removed together — so if the graphic already carried an indicator, adding your
+  own put two marks in the same spot and then lost them both.
+
 ## Release 12
 
 - "Create a graphic" can now put a past or future indicator over a component, not

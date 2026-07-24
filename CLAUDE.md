@@ -297,11 +297,21 @@ Single HTML file, one inline ES module. **No build step, no bundler** — served
     in the compound frame), in the indicator row (midway between y=66 and the sky line 130), at the
     source stroke width; for a `tense` part `addTenseMark` puts its bow in that same spot, centred on
     the same ink center. Built in the offscreen prep host so `getBBox`/`getScreenCTM` resolve.
-  - ⚠️ **`stripIndicators` removes these marks again on load** — they sit above the sky line, which is
-    exactly what that pass is defined to strip, so a composed graphic loaded with the default
-    `remove_Bliss_indicators` = yes prints *without* its indicator. Pre-existing (the plural × has always
-    behaved this way); set that param to **no** to keep them. Not changed unilaterally — it is a
-    behavior call, not a bug.
+  - **Added indicators are stamped and survive `stripIndicators`** (Ken, 2026-07-23).
+    `addPluralMark`/`addTenseMark` wrap their mark in a `<g data-bts-indicator="plural|past|future">`
+    (`BTS_INDICATOR_ATTR`), and `stripIndicators` skips anything inside such a group
+    (`el.closest(...)`). **"Remove Bliss Indicators" now means "remove the indicator built into the BCI
+    graphic", not "remove everything above the sky line"** — which is precisely what resolves a
+    collision between a built-in indicator and an added one: both want the same spot in the indicator
+    row, and now the built-in one is the one that goes. Before the stamp the two were
+    indistinguishable (both just marks above the sky line) and the added one was stripped along with it.
+    - The stamp is written into the saved `.svg`, so it survives the round trip through the folder, and
+      it survives being re-used as a component of a *later* compound (`composeCompound` imports child
+      nodes wholesale). Verified against the desktop OpenSCAD CLI that the importer treats a `<g>` with
+      an unknown attribute like any other group — a two-square probe imported both squares, 24 facets.
+    - ⚠️ The dialog's own 2D preview still shows the raw composed artwork, so a built-in indicator and
+      an added one **both** appear there even though only the added one reaches the print. The preview
+      is honest about the file; it just isn't a render preview.
   - **The saved SVG is raw on-matrix line-art** (strokes intact, `.pen1` style carried from the first
     part, indicators as explicit-stroke `<line>`s / `<path>` arcs + a fresh `viewBox`/`width`/`height`
     in mm). So when
@@ -328,7 +338,9 @@ Single HTML file, one inline ES module. **No build step, no bundler** — served
   with a dot). **Always on** — `applyPrep` runs unconditionally; the old "Auto-prep SVG" header
   checkbox is gone. Indicator removal specifically is still gated by the Graphic Info param
   `remove_Bliss_indicators` (default yes), and `svgRaw` keeps the upload so flipping that doesn't
-  need a re-open. See "Bliss guideline matrix" below for why this is geometric rather than
+  need a re-open. It removes the indicator **built into the BCI graphic** only — an indicator added in
+  the Create-Graphic dialog is stamped `data-bts-indicator` and always kept (Ken, 2026-07-23; see that
+  dialog's section). See "Bliss guideline matrix" below for why this is geometric rather than
   shape-recognition. Test hooks: `window.__stripIndicators`, `window.__parseStrokeWidth`.
 - **Viewport:** light theme, no grid. Render-on-demand (a single rAF is queued only on orbit /
   resize / new mesh — no perpetual loop, near-zero idle CPU). `syncSize()` reconciles the drawing
@@ -393,7 +405,9 @@ recognition needed. Two consequences worth remembering:
 
 - This removes **all** above-sky-line indicators, not just tense (plural, question and the rest share
   that row). Correct for now; distinguishing them would need shape classification, which the regular
-  geometry makes tractable if it's ever wanted.
+  geometry makes tractable if it's ever wanted. The **one** exception is an indicator added in the
+  Create-Graphic dialog, which is identified by its `data-bts-indicator` stamp rather than by geometry
+  and is always kept.
 - The test must be the **absolute** grid band, not "the topmost element". `bright.svg` proves it: it
   has a "v" indicator at y 66–98 *and* a legitimate intensifier at y 162–225.
 

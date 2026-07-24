@@ -782,6 +782,9 @@ const RELEASE_NOTES = {
   ],
   "12": [
     "\"Create a graphic\" can now put a past or future indicator over a component, not just a plural one. Each component in the dialog has three tick boxes — ×, past and future — and a component carries one indicator at a time, so ticking one clears the others. The past and future marks are the standard Blissymbolics characters: a shallow bow in the indicator row, curving to the right for past and to the left for future."
+  ],
+  "13": [
+    "\"Remove Bliss Indicators\" no longer removes an indicator you added yourself. It now takes off only the indicator that came built into the BCI graphic, and leaves anything you ticked on in \"Create a graphic\" in place. Before, both were removed together — so if the graphic already carried an indicator, adding your own put two marks in the same spot and then lost them both."
   ]
 };
 // @@RELEASE_NOTES_END@@
@@ -1301,6 +1304,8 @@ document.querySelectorAll('#viewport-toolbar button[data-view]').forEach(b => b.
 //
 // Note this removes ALL above-sky-line indicators, not only tense; plural,
 // question and the other indicators share that row. That is what we want today.
+// The one exception is an indicator the Create-Graphic dialog added, which is
+// stamped with BTS_INDICATOR_ATTR and always kept — see that constant.
 const BLISS_SKY_LINE   = 130;   // sky line, in the canonical 324-tall matrix
 const BLISS_MATRIX_TALL = 324;
 // Step-0 stroke fattening. BSI exports draw at ~7 units on the 324 matrix (what
@@ -1327,6 +1332,15 @@ const EARTH_SKY_HALF_SPAN = 12;
 // Minimum clear border between the graphic's ink and the body edge, each side.
 const BLISS_MIN_BORDER_MM = 3;
 const DRAWABLE = 'path,line,circle,ellipse,rect,polygon,polyline';
+// Every indicator the Create-Graphic dialog adds is stamped with this attribute,
+// which is what tells `stripIndicators` to leave it alone: "Remove Bliss
+// Indicators" strips the indicator BUILT INTO a BCI graphic, but never one the
+// user added in that dialog (Ken, 2026-07-23). Without the stamp the two are
+// indistinguishable — both are just marks above the sky line — so an added
+// indicator was being removed along with the built-in one it collided with. The
+// stamp is written into the saved .svg, so it survives the round trip through the
+// folder, and OpenSCAD's importer ignores attributes it does not know.
+const BTS_INDICATOR_ATTR = 'data-bts-indicator';
 // Gap inserted between two symbols when appending them into a sequence ("1"+"0"
 // -> "10"), in matrix units. Each part is advanced by its own viewBox width —
 // which already carries the designer's built-in side margins — PLUS this. Small
@@ -1422,6 +1436,12 @@ function stripIndicators(text){
 
     const all = [...root.querySelectorAll(DRAWABLE)];
     const doomed = all.filter(el => {
+      // Indicators added in the Create-Graphic dialog are stamped, and are kept:
+      // this param is about the indicator BUILT INTO a BCI graphic, not one the
+      // user deliberately placed (Ken, 2026-07-23). Stripping the built-in one
+      // while keeping the added one is exactly what resolves a collision between
+      // the two, since both want the same spot in the indicator row.
+      if (el.closest(`[${BTS_INDICATOR_ATTR}]`)) return false;
       const b = bboxInRootUnits(el, root);
       return b && b.maxY <= skyLine;     // entirely above the sky line
     });
@@ -1814,10 +1834,11 @@ async function readGraphicPartText(name){
   return (await fh.getFile()).text();
 }
 
-// Draw a multiplication-sign (×) plural indicator centred at (cx,cy).
+// Draw a multiplication-sign (×) plural indicator centered at (cx,cy).
 function addPluralMark(root, cx, cy, half, sw){
   const SVGNS = 'http://www.w3.org/2000/svg';
   const grp = document.createElementNS(SVGNS, 'g');
+  grp.setAttribute(BTS_INDICATOR_ATTR, 'plural');
   for (const [x1, y1, x2, y2] of [
     [cx - half, cy - half, cx + half, cy + half],
     [cx + half, cy - half, cx - half, cy + half],
@@ -1843,11 +1864,14 @@ function addTenseMark(root, cx, cy, half, sw, which){
   const sag  = r - Math.sqrt(Math.max(r * r - half * half, 0));     // bow depth
   const dir  = which === 'future' ? -1 : 1;                         // +1 = bow right (past)
   const x    = cx - dir * sag / 2;                                  // the chord side; apex is opposite
+  const grp = document.createElementNS(SVGNS, 'g');
+  grp.setAttribute(BTS_INDICATOR_ATTR, which);
   const p = document.createElementNS(SVGNS, 'path');
   p.setAttribute('d', `M ${fmt(x)},${fmt(cy - half)} A ${fmt(r)},${fmt(r)} 0 0 ${dir > 0 ? 1 : 0} ${fmt(x)},${fmt(cy + half)}`);
   p.setAttribute('stroke', '#000'); p.setAttribute('stroke-width', fmt(sw));
   p.setAttribute('stroke-linecap', 'round'); p.setAttribute('fill', 'none');
-  root.appendChild(p);
+  grp.appendChild(p);
+  root.appendChild(grp);
 }
 
 // Compose an ordered list of components into one on-matrix SVG string.
