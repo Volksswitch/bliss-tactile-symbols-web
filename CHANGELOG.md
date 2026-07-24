@@ -7,6 +7,8 @@ User-facing changes, newest first. Each bullet is written the way a user reads i
 
 ## Unreleased (next release)
 
+## Release 14
+
 - "Create a graphic" now deals with the indicators your components were drawn
   with, so your own indicator no longer lands on top of one. Tick ×, past or
   future on a component and it replaces that component's built-in indicator
