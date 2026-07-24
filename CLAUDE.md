@@ -309,9 +309,7 @@ Single HTML file, one inline ES module. **No build step, no bundler** — served
       it survives being re-used as a component of a *later* compound (`composeCompound` imports child
       nodes wholesale). Verified against the desktop OpenSCAD CLI that the importer treats a `<g>` with
       an unknown attribute like any other group — a two-square probe imported both squares, 24 facets.
-    - ⚠️ The dialog's own 2D preview still shows the raw composed artwork, so a built-in indicator and
-      an added one **both** appear there even though only the added one reaches the print. The preview
-      is honest about the file; it just isn't a render preview.
+    - **The dialog's 2D preview mirrors the strip** (Ken, 2026-07-23) — see the preview bullet below.
   - **The saved SVG is raw on-matrix line-art** (strokes intact, `.pen1` style carried from the first
     part, indicators as explicit-stroke `<line>`s / `<path>` arcs + a fresh `viewBox`/`width`/`height`
     in mm). So when
@@ -323,7 +321,18 @@ Single HTML file, one inline ES module. **No build step, no bundler** — served
   - **2D preview** injects the composed SVG **inline** (the browser renders the line-art natively — it
     is *not* CSS-blind like OpenSCAD, so `.pen1` strokes show) and overlays faint **guideline
     references** (`overlayGuidelines`: sky/earth solid, indicator-top/mid dashed) that are preview-only
-    and never saved. The picker's `openSvgPicker(onChoose, seed)` was generalised so the dialog's "+ Add
+    and never saved.
+    - **It mirrors the strip** (Ken, 2026-07-23). `previewSvgFor` runs the composed art through
+      `stripIndicators` under the *same* `remove_Bliss_indicators` gate `applyPrep` uses, so a
+      component's built-in BCI indicator vanishes here exactly as it will on the symbol, and an added
+      indicator is left sitting alone in the row instead of overlapping it. It calls the same function
+      the prep pipeline calls, so preview and render cannot drift apart. Set the param to **no** and
+      the built-in indicator reappears in the preview too.
+    - ⚠️ **The saved file is still the raw composed art** — `saveCreatedGraphic` composes for itself
+      and never goes through `previewSvgFor`. The strip is a *display* of what the render will do, not
+      an edit of the artwork; baking it into the file would make `remove_Bliss_indicators = no`
+      unable to bring the built-in indicator back. `#createPreviewNote` says so on screen whenever the
+      preview is hiding something the file still contains. The picker's `openSvgPicker(onChoose, seed)` was generalised so the dialog's "+ Add
     symbol" appends a component instead of assigning; assignment passes the default `loadSvgByName`.
   - Test hooks: `window.__composeCompound`, `window.__loadFromFolder` (drive the whole UI with a mock
     directory handle — the automated in-app browser can't operate the OS folder-picker dialog, so this

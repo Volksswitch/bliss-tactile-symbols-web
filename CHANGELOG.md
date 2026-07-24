@@ -7,6 +7,13 @@ User-facing changes, newest first. Each bullet is written the way a user reads i
 
 ## Unreleased (next release)
 
+- The preview in "Create a graphic" now shows what the finished symbol will show.
+  An indicator that came built into a component is hidden there, just as it is
+  taken off the symbol, so an indicator you tick on stands on its own instead of
+  sitting on top of the built-in one. A line under the preview tells you when
+  something is being hidden — it is still there in the saved file, and turning
+  "Remove Bliss Indicators" off brings it back into the preview.
+
 ## Release 13
 
 - "Remove Bliss Indicators" no longer removes an indicator you added yourself. It

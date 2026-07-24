@@ -616,6 +616,7 @@
       <div class="create-right">
         <div class="create-caption">Preview</div>
         <div id="createPreview" class="create-preview"></div>
+        <p id="createPreviewNote" class="create-note" hidden></p>
       </div>
     </div>
     <div class="create-foot">
@@ -785,6 +786,9 @@ const RELEASE_NOTES = {
   ],
   "13": [
     "\"Remove Bliss Indicators\" no longer removes an indicator you added yourself. It now takes off only the indicator that came built into the BCI graphic, and leaves anything you ticked on in \"Create a graphic\" in place. Before, both were removed together — so if the graphic already carried an indicator, adding your own put two marks in the same spot and then lost them both."
+  ],
+  "14": [
+    "The preview in \"Create a graphic\" now shows what the finished symbol will show. An indicator that came built into a component is hidden there, just as it is taken off the symbol, so an indicator you tick on stands on its own instead of sitting on top of the built-in one. A line under the preview tells you when something is being hidden — it is still there in the saved file, and turning \"Remove Bliss Indicators\" off brings it back into the preview."
   ]
 };
 // @@RELEASE_NOTES_END@@
@@ -2089,19 +2093,43 @@ function renderCreateChips(){
 // Rebuild the 2D preview from the current components. Reads any uncached part
 // texts, composes, injects the SVG inline (the browser renders the line-art
 // natively), and overlays faint Bliss guideline references.
+//
+// The preview MIRRORS THE STRIP (Ken, 2026-07-23): it shows the composed art with
+// `stripIndicators` applied, under the same `remove_Bliss_indicators` gate the
+// render uses, so a component's built-in BCI indicator disappears here exactly as
+// it will on the symbol — and the indicator you ticked on is left sitting alone in
+// the row instead of overlapping it. Literally the same function the prep pipeline
+// calls, so the two cannot drift apart. The SAVED file is still the raw composed
+// art (`saveCreatedGraphic` composes for itself): the strip is a display of what
+// the render will do, not an edit of the artwork, and flipping the param back to
+// "no" must still bring the built-in indicator back.
+function previewSvgFor(parts){
+  const svg = composeCompound(parts);
+  if (!svg || (pv('remove_Bliss_indicators') ?? 'yes') === 'no') return { svg, removed: 0, shape: null };
+  const s = stripIndicators(svg);
+  return { svg: s.svg, removed: s.removed, shape: s.shape };
+}
+
 async function refreshCreatePreview(){
-  if (!createParts.length) { createPreview.innerHTML = '<div class="create-empty">Add symbols to see a preview.</div>'; return; }
+  const note = document.getElementById('createPreviewNote');
+  const setNote = txt => { note.hidden = !txt; note.textContent = txt || ''; };
+  if (!createParts.length) { createPreview.innerHTML = '<div class="create-empty">Add symbols to see a preview.</div>'; setNote(''); return; }
   try {
     await Promise.all(createParts.map(async p => {
       if (createTextCache[p.name] == null) createTextCache[p.name] = await readGraphicPartText(p.name);
     }));
-  } catch (e) { createPreview.innerHTML = `<div class="create-empty">Couldn't read a component — ${e.message}</div>`; return; }
-  let svg;
-  try { svg = composeCompound(createParts.map(p => ({ text: createTextCache[p.name], plural: p.plural, tense: p.tense }))); }
-  catch (e) { createPreview.innerHTML = `<div class="create-empty">${e.message}</div>`; return; }
-  createPreview.innerHTML = svg;
+  } catch (e) { createPreview.innerHTML = `<div class="create-empty">Couldn't read a component — ${e.message}</div>`; setNote(''); return; }
+  let out;
+  try { out = previewSvgFor(createParts.map(p => ({ text: createTextCache[p.name], plural: p.plural, tense: p.tense }))); }
+  catch (e) { createPreview.innerHTML = `<div class="create-empty">${e.message}</div>`; setNote(''); return; }
+  createPreview.innerHTML = out.svg;
   const el = createPreview.querySelector('svg');
   if (el) { el.removeAttribute('width'); el.removeAttribute('height'); overlayGuidelines(el); }
+  // Say so when the preview is hiding something the file still contains, so the
+  // difference between this and the saved artwork is never a surprise.
+  setNote(out.removed
+    ? `A built-in indicator (${out.shape}) is hidden here — “Remove Bliss Indicators” takes it off the symbol. It stays in the saved file.`
+    : '');
 }
 
 // Draw faint sky/earth (solid) + indicator-top/mid (dashed) reference lines
